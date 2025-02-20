@@ -10,4 +10,4 @@ $(SUBDIRS):
 	bash build.sh $@
 
 clean:
-	rm -r $(SUBDIRS)
+	rm -rf $(SUBDIRS)
