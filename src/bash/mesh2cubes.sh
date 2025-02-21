@@ -9,9 +9,9 @@ declare -a max=(0 0 0)
 declare -a mid=(0 0 0)
 declare c='1.0'
 declare t='1.0'
-declare xr='0.0'
-declare yr='0.0'
-declare zr='0.0'
+declare -i xr=0
+declare -i yr=0
+declare -i zr=0
 
 length () {
 	echo $(echo $(echo $(echo $(echo $2 $2 | awk '{ print $1 * $2 }') $(echo $3 $3 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') $(echo $1 $1 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') | awk '{ print sqrt($1) }')
@@ -79,9 +79,9 @@ translate () {
 }
 
 cube () {
-	local -r x=$(echo $(echo $(echo $1 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
-	local -r y=$(echo $(echo $(echo $2 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
-	local -r z=$(echo $(echo $(echo $3 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
+	local -ir x=$(echo $(echo $(echo $1 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
+	local -ir y=$(echo $(echo $(echo $2 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
+	local -ir z=$(echo $(echo $(echo $3 $c | awk '{ print $1 / $2 }') '0.5' | awk '{ print $1 + $2 }') | awk '{ if ($1 < 0) { d = $1 % 1; if (d < 0) { print $1 - d - 1 } else { print $1 } } else { print $1 - $1 % 1 } }')
 	grid["$x,$y,$z"]=1
 }
 

@@ -7,7 +7,7 @@ all: $(SUBDIRS)
 
 $(SUBDIRS):
 	mkdir -p $@
-	bash build.sh $@
+	bash $@.sh
 
 clean:
 	rm -rf $(SUBDIRS)
