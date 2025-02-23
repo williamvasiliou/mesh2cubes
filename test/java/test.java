@@ -25,8 +25,8 @@ public final class test {
 		final int yr = m2c.yr;
 		final int zr = m2c.zr;
 
-		System.out.println(String.format("%f,%f,%f,%f,%f", m2c.max[0], m2c.max[1], m2c.max[2], m2c.t, m2c.c));
-		System.out.println(String.format("%d,%d,%d", xr, yr, zr));
+		System.out.printf("%f,%f,%f,%f,%f\n", m2c.max[0], m2c.max[1], m2c.max[2], m2c.t, m2c.c);
+		System.out.printf("%d,%d,%d\n", xr, yr, zr);
 
 		final int xl = 2 * xr + 1;
 		final int yl = 2 * yr + 1;
@@ -36,7 +36,7 @@ public final class test {
 			for (int z = 0; z < zl; ++z) {
 				for (int x = 0; x < xl; ++x) {
 					if (m2c.grid[x][y][z]) {
-						System.out.println(String.format("%d,%d,%d", x - xr, y - yr, z - zr));
+						System.out.printf("%d,%d,%d\n", x - xr, y - yr, z - zr);
 					}
 				}
 			}

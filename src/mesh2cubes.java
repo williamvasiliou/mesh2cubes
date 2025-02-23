@@ -231,14 +231,14 @@ public final class mesh2cubes {
 		}
 
 		public final void print() {
-			System.out.println(String.format("%f,%f,%f,%f,%f", this.x, this.y, this.z, this.t, this.c));
-			System.out.println(String.format("%d,%d,%d", this.xr, this.yr, this.zr));
+			System.out.printf("%f,%f,%f,%f,%f\n", this.x, this.y, this.z, this.t, this.c);
+			System.out.printf("%d,%d,%d\n", this.xr, this.yr, this.zr);
 
 			for (int y = 0; y < this.yl; ++y) {
 				for (int z = 0; z < this.zl; ++z) {
 					for (int x = 0; x < this.xl; ++x) {
 						if (this.g[x][y][z]) {
-							System.out.println(String.format("%d,%d,%d", x - this.xr, y - this.yr, z - this.zr));
+							System.out.printf("%d,%d,%d\n", x - this.xr, y - this.yr, z - this.zr);
 						}
 					}
 				}

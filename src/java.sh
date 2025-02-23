@@ -655,3 +655,4 @@ emit_vertex () {
 }
 
 . ./build.sh java
+javac ./java/mesh2cubes.java
