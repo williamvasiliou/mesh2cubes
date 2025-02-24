@@ -57,11 +57,11 @@ public final class Expected {
 		return false;
 	}
 
-	public final boolean actual(ArrayList<String> lines) {
+	public final boolean actual(ArrayList<String> lines, String error) {
 		final int size = lines.size();
 
-		assert size > 1;
-		assert size == this.expected.size() + 2;
+		assert size > 1 : error;
+		assert size == this.expected.size() + 2 : error;
 
 		final double[] v = new double[] {0.0, 0.0, 0.0, 0.0, 0.0};
 		final int[] r = new int[] {0, 0, 0};
@@ -72,8 +72,8 @@ public final class Expected {
 
 		for (char c : line) {
 			if (c == ',') {
-				assert i < v.length;
-				assert s.length() > 0;
+				assert i < v.length : error;
+				assert s.length() > 0 : error;
 				v[i++] = Double.valueOf(s);
 
 				s = "";
@@ -82,8 +82,8 @@ public final class Expected {
 			}
 		}
 
-		assert i == v.length - 1;
-		assert s.length() > 0;
+		assert i == v.length - 1 : error;
+		assert s.length() > 0 : error;
 		v[i] = Double.valueOf(s);
 
 		line = lines.get(1).toCharArray();
@@ -92,8 +92,8 @@ public final class Expected {
 
 		for (char c : line) {
 			if (c == ',') {
-				assert i < r.length;
-				assert s.length() > 0;
+				assert i < r.length : error;
+				assert s.length() > 0 : error;
 				r[i++] = Integer.valueOf(s);
 
 				s = "";
@@ -102,17 +102,17 @@ public final class Expected {
 			}
 		}
 
-		assert i == r.length - 1;
-		assert s.length() > 0;
+		assert i == r.length - 1 : error;
+		assert s.length() > 0 : error;
 		r[i] = Integer.valueOf(s);
 
-		assert this.actual(v[0], v[1], v[2], v[3], v[4], r[0], r[1], r[2]);
+		assert this.actual(v[0], v[1], v[2], v[3], v[4], r[0], r[1], r[2]) : error;
 
 		for (i = 2; i < size; ++i) {
-			assert this.actual(lines.get(i));
+			assert this.actual(lines.get(i)) : error;
 		}
 
-		assert this.expected.size() == 0;
+		assert this.expected.size() == 0 : error;
 		return true;
 	}
 }

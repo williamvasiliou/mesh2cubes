@@ -4,7 +4,7 @@
 
 read () {
 	vertices=($(cat))
-	size=$((${#vertices[@]} / 3))
+	size=$((3 * $((${#vertices[@]} / 9))))
 
 	for (( i=0 ; i < $size ; i += 3 ))
 	do

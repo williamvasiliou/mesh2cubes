@@ -10,13 +10,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public final class mesh2cubes {
+	public static final String mesh2cubes = "mesh2cubes";
 	public static final String[] tests = new String[] {"Teapot"};
 
 	public static final HashMap<String, String> extensions = new HashMap<String, String>(2);
 
 	static {
-		extensions.put("bash", ".sh");
-		extensions.put("java", ".java");
+		extensions.put("awk", "awk");
+		extensions.put("bash", "sh");
+		extensions.put("java", "java");
 	}
 
 	public static final float intBitsToFloat(byte b1, byte b2, byte b3, byte b4) {
@@ -48,8 +50,10 @@ public final class mesh2cubes {
 		out.writeBytes(String.format("%g\n", intBitsToFloat(b[off + 11], b[off + 10], b[off + 9], b[off + 8])));
 	}
 
-	public static final ProcessBuilder builder(String target, String argument) {
+	public static final ProcessBuilder builder(String target, String extension, String argument) {
 		switch (target) {
+			case "awk":
+				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);
 			case "java":
 				return new ProcessBuilder(target, "-cp", "../../src/java", argument);
 			default:
@@ -64,12 +68,13 @@ public final class mesh2cubes {
 		final String name = (String)testClass.getDeclaredField("name").get(null);
 		final Expected expected = (Expected)testClass.getDeclaredField("expected").get(null);
 
+		final String error = String.format("%s ('%s')", test, name);
 		Process p = pb.start();
 		read(name, new DataOutputStream(p.getOutputStream()));
 		new BufferedReader(new InputStreamReader(p.getInputStream())).lines().forEach(line -> lines.add(line));
 		p.waitFor();
 
-		assert expected.actual(lines) : String.format("%s ('%s')\n\n", test, name);
+		assert expected.actual(lines, error) : error;
 	}
 
 	public static final void main(String[] args) throws ClassNotFoundException, IllegalAccessException, InterruptedException, IOException, NoSuchFieldException {
@@ -78,13 +83,14 @@ public final class mesh2cubes {
 			File directory = new File(target);
 
 			if (directory.exists() && directory.isDirectory()) {
-				File path = new File(directory, "test" + extensions.get(target));
+				String extension = extensions.get(target);
+				File path = new File(directory, "test." + extension);
 
 				if (path.exists()) {
 					String argument = path.getAbsolutePath();
 
 					for (String test : tests) {
-						ProcessBuilder pb = builder(target, argument);
+						ProcessBuilder pb = builder(target, extension, argument);
 						pb.directory(directory);
 						pb.redirectErrorStream(true);
 

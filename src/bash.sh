@@ -507,9 +507,7 @@ emit_var() {
 	local -a attributes
 	local name=
 	local value=
-
-	local -i child=0
-	local Result
+	local Result=
 
 	if [ ${context:0:1} -eq 1 ]
 	then

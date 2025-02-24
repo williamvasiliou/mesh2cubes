@@ -9,7 +9,7 @@ public final class test {
 		new BufferedReader(new InputStreamReader(System.in)).lines()
 			.forEach(v -> m2c.vertices.add(Double.valueOf(v)));
 
-		final int size = m2c.vertices.size() / 3;
+		final int size = 3 * (m2c.vertices.size() / 9);
 
 		for (int i = 0; i < size; i += 3) {
 			m2c.elements.add(i);
