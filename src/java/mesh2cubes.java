@@ -14,6 +14,9 @@ public final class mesh2cubes {
 	public int xr;
 	public int yr;
 	public int zr;
+	public int xl;
+	public int yl;
+	public int zl;
 
 	public mesh2cubes () {
 		this.size = 0;
@@ -27,10 +30,13 @@ public final class mesh2cubes {
 		this.xr = 0;
 		this.yr = 0;
 		this.zr = 0;
+		this.xl = 0;
+		this.yl = 0;
+		this.zl = 0;
 	}
 
 	public double length (double[] v1) {
-		return Math.sqrt(v1[1] * v1[1] + v1[2] * v1[2] + v1[0] * v1[0]);
+		return Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]);
 	}
 
 	public void translate () {
@@ -39,9 +45,9 @@ public final class mesh2cubes {
 			max = new double[] {this.vertices.get(0), this.vertices.get(1), this.vertices.get(2)};
 
 			for (int i = 1; i < size; ++i) {
-				double x = this.vertices.get(3 * i);
-				double y = this.vertices.get(3 * i + 1);
-				double z = this.vertices.get(3 * i + 2);
+				final double x = this.vertices.get(3 * i);
+				final double y = this.vertices.get(3 * i + 1);
+				final double z = this.vertices.get(3 * i + 2);
 
 				if (x < min[0]) {
 					min[0] = x;
@@ -82,15 +88,21 @@ public final class mesh2cubes {
 			xr = (int) Math.ceil(max[0] / c - 0.5);
 			yr = (int) Math.ceil(max[1] / c - 0.5);
 			zr = (int) Math.ceil(max[2] / c - 0.5);
-			this.grid = new boolean[2 * xr + 1][2 * yr + 1][2 * zr + 1];
+			xl = 2 * xr + 1;
+			yl = 2 * yr + 1;
+			zl = 2 * zr + 1;
+			this.grid = new boolean[xl][yl][zl];
 		}
 	}
 
 	public void cube (double[] v1) {
-		final int x = (int) Math.floor(v1[0] / c + 0.5);
-		final int y = (int) Math.floor(v1[1] / c + 0.5);
-		final int z = (int) Math.floor(v1[2] / c + 0.5);
-		this.grid[x + xr][y + yr][z + zr] = true;
+		final int x = (int) Math.floor(v1[0] / c + 0.5) + xr;
+		final int y = (int) Math.floor(v1[1] / c + 0.5) + yr;
+		final int z = (int) Math.floor(v1[2] / c + 0.5) + zr;
+
+		if (x >= 0 && x < xl && y >= 0 && y < yl && z >= 0 && z < zl) {
+			this.grid[x][y][z] = true;
+		}
 	}
 
 	public void triangle (int a, int b, int c) {

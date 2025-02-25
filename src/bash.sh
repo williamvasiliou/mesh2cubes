@@ -79,10 +79,18 @@ emit_addDouble () {
 	echo '$(echo\040'$(rvalue ${1:?})'\040'$(rvalue ${2:?})'\040|\040awk\040'\''{\040print\040$1\040+\040$2\040}'\'')'
 }
 
+emit_addInt () {
+	echo '$(('$(rvalue ${1:?})'\040+\040'$(rvalue ${2:?})'))'
+}
+
+emit_addLow () {
+	echo $(rvalue ${1:?})
+}
+
 emit_and () {
 	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}))
 
-	echo '['${Result[0]:0:-1}'&&'${Result[1]:1}']'
+	echo '\133'${Result[0]:0:-4}'&&'${Result[1]:4}'\135'
 }
 
 emit_assignDouble () {
@@ -91,6 +99,10 @@ emit_assignDouble () {
 
 emit_assignGrid () {
 	echo 'grid["'$(rvalue ${1:?})','$(rvalue ${2:?})','$(rvalue ${3:?})'"]=1\n'
+}
+
+emit_assignInt () {
+	echo $(lvalue ${1:?})'='$(rvalue ${2:?})'\n'
 }
 
 emit_assignVector3d () {
@@ -158,7 +170,7 @@ emit_compareDouble () {
 	Result[1]=${Result[1]/-gt/'>'}
 	Result[2]=$(rvalue ${3:?})
 
-	echo '[\040$(echo\040'${Result[0]}'\040'${Result[2]}'\040|\040awk\040'\''{\040print($1\040'${Result[1]}'\040$2)\040}'\'')\040-gt\0400\040]'
+	echo '\133\040$(echo\040'${Result[0]}'\040'${Result[2]}'\040|\040awk\040'\''{\040print($1\040'${Result[1]}'\040$2)\040}'\'')\040-gt\0400\040\135'
 }
 
 emit_compareInt () {
@@ -170,7 +182,11 @@ emit_compareInt () {
 		Result[${#Result[@]}]=$(rvalue $child)
 	done
 
-	echo '[\040'$(join '\040' ${Result[@]})'\040]'
+	echo '\133\040'$(join '\040' ${Result[@]})'\040\135'
+}
+
+emit_compareLow () {
+	echo
 }
 
 emit_constructor () {
@@ -179,10 +195,16 @@ emit_constructor () {
 	local -a Result
 	for child in ${children[@]}
 	do
-		for built in $(emit $child '1'${context:1})
-		do
-			Result[${#Result[@]}]=$built
-		done
+		case ${T[$child]} in
+			var:size.elements*|var:size.grid*)
+				;;
+			*)
+				for built in $(emit $child '1'${context:1})
+				do
+					Result[${#Result[@]}]=$built
+				done
+				;;
+		esac
 	done
 
 	echo ${Result[@]}
@@ -261,7 +283,7 @@ emit_for () {
 	local -a Result=('for\040((\040'$(rvalue ${1:?}))
 
 	local parameters=$(rvalue ${2:?})
-	parameters=${parameters:6:-5}
+	parameters=${parameters:9:-8}
 	parameters=${parameters/-lt/'<'}
 	Result[0]=${Result[0]}'\040;\040'$parameters
 
@@ -336,6 +358,10 @@ emit_identifier () {
 	echo '$'${T[${1:?}]}
 }
 
+emit_identifierThis () {
+	echo '$'${T[${1:?}]}
+}
+
 emit_identifierVector3d () {
 	echo '(${'${T[${1:?}]}'[@]})'
 }
@@ -344,13 +370,7 @@ emit_if () {
 	local -ar children=(${@:1})
 	local -ir size=${#children[@]}
 	local -i child=0
-	local -a Result
-
-	for child in ${children[0]}
-	do
-		Result[${#Result[@]}]=$(rvalue $child)
-	done
-	Result='if\040'$(join '\040' ${Result[@]})'\n'
+	local -a Result=('if\040'$(rvalue ${children[0]})'\n')
 
 	Result[${#Result[@]}]='then\n'
 	for child in ${children[1]}
@@ -376,6 +396,12 @@ emit_if () {
 	Result[${#Result[@]}]='fi\n'
 
 	echo ${Result[@]}
+}
+
+emit_ifAssignGrid () {
+	local -r Result=$(rvalue ${2:?})
+
+	echo ${Result:2}
 }
 
 emit_increment () {
@@ -427,6 +453,10 @@ emit_minusVector3d () {
 
 emit_multiplyDouble () {
 	echo '$(echo\040'$(rvalue ${1:?})'\040'$(rvalue ${2:?})'\040|\040awk\040'\''{\040print\040$1\040*\040$2\040}'\'')'
+}
+
+emit_multiplyInt () {
+	echo '$(('$(rvalue ${1:?})'\040*\040'$(rvalue ${2:?})'))'
 }
 
 emit_newGrid () {
@@ -536,7 +566,7 @@ emit_var() {
 		esac
 
 		case ${parameters[0]} in
-			int)
+			index|size*)
 				attributes[${#attributes[@]}]='-i'
 				;;
 		esac
@@ -571,7 +601,7 @@ emit_var() {
 		esac
 
 		case $name in
-			*int*)
+			*index*|*size*)
 				if [ ${#attributes[@]} -gt 1 ]
 				then
 					attributes[-1]+='i'

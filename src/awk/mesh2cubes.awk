@@ -17,20 +17,22 @@ BEGIN {
 }
 
 function ceil(x, y) {
+	y = x % 1;
+
 	if (x > 0) {
-		y = x % 1;
 		if (y > 0) {
 			return x - y + 1;
 		} else {
 			return x;
 		}
 	} else {
-		return 0;
+		return x - y;
 	}
 }
 
 function floor(x, y) {
 	y = x % 1;
+
 	if (x < 0) {
 		if (y < 0) {
 			return x - y - 1;
@@ -38,7 +40,7 @@ function floor(x, y) {
 			return x;
 		}
 	} else {
-		return x -y;
+		return x - y;
 	}
 }
 
@@ -47,7 +49,7 @@ function fmin(x, y) {
 }
 
 function lengthVector3d(v1) {
-	return sqrt(v1[2] * v1[2] + v1[3] * v1[3] + v1[1] * v1[1]);
+	return sqrt(v1[1] * v1[1] + v1[2] * v1[2] + v1[3] * v1[3]);
 }
 
 function translate() {

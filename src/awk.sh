@@ -71,6 +71,14 @@ emit_addDouble () {
 	echo $(rvalue ${1:?})'\040+\040'$(rvalue ${2:?})
 }
 
+emit_addInt () {
+	echo $(rvalue ${1:?})'\040+\040'$(rvalue ${2:?})
+}
+
+emit_addLow () {
+	echo $(rvalue ${1:?})
+}
+
 emit_and () {
 	echo $(rvalue ${1:?})'\040&&\040'$(rvalue ${2:?})
 }
@@ -81,6 +89,10 @@ emit_assignDouble () {
 
 emit_assignGrid () {
 	echo 'grid['$(rvalue ${1:?})'\040","\040'$(rvalue ${2:?})'\040","\040'$(rvalue ${3:?})']\040=\0401;\n'
+}
+
+emit_assignInt () {
+	echo $(lvalue ${1:?})'\040=\040'$(rvalue ${2:?})';\n'
 }
 
 emit_assignVector3d () {
@@ -165,6 +177,10 @@ emit_compareInt () {
 	echo $(join '\040' ${Result[@]})
 }
 
+emit_compareLow () {
+	echo
+}
+
 emit_constructor () {
 	local -ar children=${@:1}
 	local -i child=0
@@ -178,6 +194,12 @@ emit_constructor () {
 
 		if [ ${#parameters[@]} -gt 2 ]
 		then
+			case ${parameters[0]} in
+				size.elements|size.grid)
+					continue
+					;;
+			esac
+
 			for built in $(emit $child '0'${context:1})
 			do
 				Result[$size]='\t'$built
@@ -203,20 +225,20 @@ emit_constructor () {
 	Result[${#Result[@]}]='}\n'
 	Result[${#Result[@]}]='\n'
 	Result[${#Result[@]}]='function\040ceil(x,\040y)\040{\n'
+	Result[${#Result[@]}]='\ty\040=\040x\040\045\0401;\n\n'
 	Result[${#Result[@]}]='\tif\040(x\040>\0400)\040{\n'
-	Result[${#Result[@]}]='\t\ty\040=\040x\040\045\0401;\n'
 	Result[${#Result[@]}]='\t\tif\040(y\040>\0400)\040{\n'
 	Result[${#Result[@]}]='\t\t\treturn\040x\040-\040y\040+\0401;\n'
 	Result[${#Result[@]}]='\t\t}\040else\040{\n'
 	Result[${#Result[@]}]='\t\t\treturn\040x;\n'
 	Result[${#Result[@]}]='\t\t}\n'
 	Result[${#Result[@]}]='\t}\040else\040{\n'
-	Result[${#Result[@]}]='\t\treturn\0400;\n'
+	Result[${#Result[@]}]='\t\treturn\040x\040-\040y;\n'
 	Result[${#Result[@]}]='\t}\n'
 	Result[${#Result[@]}]='}\n'
 	Result[${#Result[@]}]='\n'
 	Result[${#Result[@]}]='function\040floor(x,\040y)\040{\n'
-	Result[${#Result[@]}]='\ty\040=\040x\040\045\0401;\n'
+	Result[${#Result[@]}]='\ty\040=\040x\040\045\0401;\n\n'
 	Result[${#Result[@]}]='\tif\040(x\040<\0400)\040{\n'
 	Result[${#Result[@]}]='\t\tif\040(y\040<\0400)\040{\n'
 	Result[${#Result[@]}]='\t\t\treturn\040x\040-\040y\040-\0401;\n'
@@ -224,7 +246,7 @@ emit_constructor () {
 	Result[${#Result[@]}]='\t\t\treturn\040x;\n'
 	Result[${#Result[@]}]='\t\t}\n'
 	Result[${#Result[@]}]='\t}\040else\040{\n'
-	Result[${#Result[@]}]='\t\treturn\040x\040-y;\n'
+	Result[${#Result[@]}]='\t\treturn\040x\040-\040y;\n'
 	Result[${#Result[@]}]='\t}\n'
 	Result[${#Result[@]}]='}\n'
 	Result[${#Result[@]}]='\n'
@@ -317,7 +339,7 @@ emit_forDouble () {
 
 emit_function () {
 	local -r name=${1:?}
-	local -ar parameters=${@:2}
+	local -ar parameters=(${@:2})
 	local -i size=${#parameters[@]}
 	local -r context='0'${context:1}
 
@@ -392,6 +414,10 @@ emit_identifier () {
 	echo ${T[${1:?}]}
 }
 
+emit_identifierThis () {
+	echo ${T[${1:?}]}
+}
+
 emit_identifierVector3d () {
 	local -r name=${T[${1:?}]}
 	echo $name'[1]:'$name'[2]:'$name'[3]'
@@ -428,6 +454,12 @@ emit_if () {
 	Result[${#Result[@]}]='}\n'
 
 	echo ${Result[@]}
+}
+
+emit_ifAssignGrid () {
+	local -r Result=$(rvalue ${2:?})
+
+	echo ${Result:2}
 }
 
 emit_increment () {
@@ -478,6 +510,10 @@ emit_minusVector3d () {
 }
 
 emit_multiplyDouble () {
+	echo $(rvalue ${1:?})'\040*\040'$(rvalue ${2:?})
+}
+
+emit_multiplyInt () {
 	echo $(rvalue ${1:?})'\040*\040'$(rvalue ${2:?})
 }
 

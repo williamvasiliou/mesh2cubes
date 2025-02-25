@@ -18,6 +18,7 @@ public final class mesh2cubes {
 	static {
 		extensions.put("awk", "awk");
 		extensions.put("bash", "sh");
+		extensions.put("c", "");
 		extensions.put("java", "java");
 	}
 
@@ -54,6 +55,8 @@ public final class mesh2cubes {
 		switch (target) {
 			case "awk":
 				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);
+			case "c":
+				return new ProcessBuilder(argument);
 			case "java":
 				return new ProcessBuilder(target, "-cp", "../../src/java", argument);
 			default:
@@ -84,7 +87,7 @@ public final class mesh2cubes {
 
 			if (directory.exists() && directory.isDirectory()) {
 				String extension = extensions.get(target);
-				File path = new File(directory, "test." + extension);
+				File path = new File(directory, "test" + (extension.length() > 0 ? "." + extension : ""));
 
 				if (path.exists()) {
 					String argument = path.getAbsolutePath();

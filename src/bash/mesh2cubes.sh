@@ -14,7 +14,7 @@ declare -i yr=0
 declare -i zr=0
 
 length () {
-	echo $(echo $(echo $(echo $(echo $2 $2 | awk '{ print $1 * $2 }') $(echo $3 $3 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') $(echo $1 $1 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') | awk '{ print sqrt($1) }')
+	echo $(echo $(echo $(echo $(echo $1 $1 | awk '{ print $1 * $2 }') $(echo $2 $2 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') $(echo $3 $3 | awk '{ print $1 * $2 }') | awk '{ print $1 + $2 }') | awk '{ print sqrt($1) }')
 }
 
 translate () {
@@ -25,9 +25,9 @@ translate () {
 
 		for (( i=1 ; i < $size ; ++i ))
 		do
-			local x=${vertices[$((3 * $i))]}
-			local y=${vertices[$((3 * $i + 1))]}
-			local z=${vertices[$((3 * $i + 2))]}
+			local -r x=${vertices[$((3 * $i))]}
+			local -r y=${vertices[$((3 * $i + 1))]}
+			local -r z=${vertices[$((3 * $i + 2))]}
 
 			if [ $(echo $x ${min[0]} | awk '{ print($1 < $2) }') -gt 0 ]
 			then

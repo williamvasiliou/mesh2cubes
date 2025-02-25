@@ -1,5 +1,5 @@
 TARGETS := all clean
-SUBDIRS := awk bash java
+SUBDIRS := awk bash c java
 
 .PHONY: $(TARGETS) $(SUBDIRS)
 

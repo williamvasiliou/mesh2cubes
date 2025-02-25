@@ -14,10 +14,10 @@ END {
 	translate();
 	triangles();
 
-	print max[1] "," max[2] "," max[3] "," t "," c
-	print xr "," yr "," zr
+	print max[1] "," max[2] "," max[3] "," t "," c;
+	print xr "," yr "," zr;
 
 	for (cube in grid) {
-		print cube
+		print cube;
 	}
 }

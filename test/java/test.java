@@ -28,9 +28,9 @@ public final class test {
 		System.out.printf("%f,%f,%f,%f,%f\n", m2c.max[0], m2c.max[1], m2c.max[2], m2c.t, m2c.c);
 		System.out.printf("%d,%d,%d\n", xr, yr, zr);
 
-		final int xl = 2 * xr + 1;
-		final int yl = 2 * yr + 1;
-		final int zl = 2 * zr + 1;
+		final int xl = m2c.xl;
+		final int yl = m2c.yl;
+		final int zl = m2c.zl;
 
 		for (int y = 0; y < yl; ++y) {
 			for (int z = 0; z < zl; ++z) {
