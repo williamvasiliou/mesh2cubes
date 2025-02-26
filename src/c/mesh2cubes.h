@@ -51,7 +51,7 @@ m2c_t *m2c_mesh2cubes() {
 	return m2c;
 }
 
-static inline double m2c_length(double v1[]) {
+static inline double m2c_length(double v1[3]) {
 	return sqrt(v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]);
 }
 
@@ -117,7 +117,7 @@ static void m2c_translate(m2c_t *m2c) {
 	}
 }
 
-static void m2c_cube(m2c_t *m2c, double v1[]) {
+static void m2c_cube(m2c_t *m2c, double v1[3]) {
 	const size_t x = (size_t) floor(v1[0] / m2c->c + 0.5) + m2c->xr;
 	const size_t y = (size_t) floor(v1[1] / m2c->c + 0.5) + m2c->yr;
 	const size_t z = (size_t) floor(v1[2] / m2c->c + 0.5) + m2c->zr;

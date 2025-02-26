@@ -41,6 +41,8 @@ void read(m2c_t *m2c) {
 			} else {
 				m2c->count = 0;
 			}
+		} else {
+			m2c->count = 0;
 		}
 	}
 }

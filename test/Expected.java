@@ -47,6 +47,10 @@ public final class Expected {
 		);
 	}
 
+	public final boolean actual(Header header) {
+		return this.actual(header.x, header.y, header.z, header.t, header.c, header.xr, header.yr, header.zr);
+	}
+
 	public final boolean actual(String s) {
 		if (this.expected.contains(s)) {
 			this.expected.remove(s);
@@ -63,52 +67,11 @@ public final class Expected {
 		assert size > 1 : error;
 		assert size == this.expected.size() + 2 : error;
 
-		final double[] v = new double[] {0.0, 0.0, 0.0, 0.0, 0.0};
-		final int[] r = new int[] {0, 0, 0};
+		Header header = Static.header(lines, error);
+		assert header != null : error;
+		assert this.actual(header) : error;
 
-		char[] line = lines.get(0).toCharArray();
-		String s = "";
-		int i = 0;
-
-		for (char c : line) {
-			if (c == ',') {
-				assert i < v.length : error;
-				assert s.length() > 0 : error;
-				v[i++] = Double.valueOf(s);
-
-				s = "";
-			} else {
-				s += c;
-			}
-		}
-
-		assert i == v.length - 1 : error;
-		assert s.length() > 0 : error;
-		v[i] = Double.valueOf(s);
-
-		line = lines.get(1).toCharArray();
-		s = "";
-		i = 0;
-
-		for (char c : line) {
-			if (c == ',') {
-				assert i < r.length : error;
-				assert s.length() > 0 : error;
-				r[i++] = Integer.valueOf(s);
-
-				s = "";
-			} else {
-				s += c;
-			}
-		}
-
-		assert i == r.length - 1 : error;
-		assert s.length() > 0 : error;
-		r[i] = Integer.valueOf(s);
-
-		assert this.actual(v[0], v[1], v[2], v[3], v[4], r[0], r[1], r[2]) : error;
-
-		for (i = 2; i < size; ++i) {
+		for (int i = 2; i < size; ++i) {
 			assert this.actual(lines.get(i)) : error;
 		}
 

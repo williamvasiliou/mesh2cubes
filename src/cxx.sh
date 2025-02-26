@@ -11,10 +11,13 @@ rvalue () {
 emit_mesh2cubes () {
 	local -a Result
 	Result[0]='#ifndef\040MESH2CUBES_H\n'
-	Result[1]='#include\040<math.h>\n'
-	Result[2]='#include\040<stdint.h>\n'
-	Result[3]='#include\040<stdlib.h>\n\n'
-	local -i size=4
+	Result[1]='#include\040<cmath>\n'
+	Result[2]='#include\040<cstdint>\n'
+	Result[3]='#include\040<vector>\n\n'
+
+	Result[4]='class\040mesh2cubes\040{\n'
+	Result[5]='\tpublic:\n'
+	local -i size=6
 
 	for child in ${children[@]}
 	do
@@ -28,12 +31,27 @@ emit_mesh2cubes () {
 
 			for built in $(emit $child $context)
 			do
-				Result[$size]=$built
+				Result[$size]='\t\t'$built
 				size+=1
 			done
 		fi
 	done
-	Result[$size]='\n#endif\040//\040MESH2CUBES_H\n'
+
+	Result[$size]='\n\t\t~mesh2cubes()\040{\n'
+	size+=1
+	Result[$size]='\t\t\tif\040(this->grid)\040{\n'
+	size+=1
+	Result[$size]='\t\t\t\tdelete[]\040this->grid;\n'
+	size+=1
+	Result[$size]='\t\t\t}\n'
+	size+=1
+	Result[$size]='\t\t}\n'
+	size+=1
+
+	Result[$size]='};\n\n'
+	size+=1
+	Result[$size]='#endif\040//\040MESH2CUBES_H\n'
+	size+=1
 
 	echo ${Result[@]}
 }
@@ -103,8 +121,8 @@ emit_assignDouble () {
 emit_assignGrid () {
 	local -a Result
 
-	Result[0]='const\040size_t\040i\040=\040m2c->yl\040*\040m2c->zl\040*\040'$(rvalue ${1:?})'\040+\040m2c->zl\040*\040'$(rvalue ${2:?})'\040+\040'$(rvalue ${3:?})';\n\n'
-	Result[1]='m2c->grid[i\040>>\0403]\040|=\0401\040<<\040(i\040&\0407);\n'
+	Result[0]='const\040size_t\040i\040=\040this->yl\040*\040this->zl\040*\040'$(rvalue ${1:?})'\040+\040this->zl\040*\040'$(rvalue ${2:?})'\040+\040'$(rvalue ${3:?})';\n\n'
+	Result[1]='this->grid[i\040>>\0403]\040|=\0401\040<<\040(i\040&\0407);\n'
 
 	echo ${Result[@]}
 }
@@ -142,31 +160,22 @@ emit_call () {
 
 	if [ $size -eq 0 ]
 	then
-		Result[0]=$(octal $name)'()'
+		Result[0]='this->'$(octal $name)'()'
 	else
 		for child in ${children[@]}
 		do
 			Result[${#Result[@]}]=$(rvalue $child)
 		done
 
-		Result[1]=$(join ',\040' ${Result[@]})')'
+		Result[0]=$(octal $name)'('$(join ',\040' ${Result[@]})')'
 
 		case $name in
-			length)
-				Result[1]='('${Result[1]}
-				Result[2]='m2c_'$(octal $name)
-				;;
-			sqrt)
-				Result[1]='('${Result[1]}
-				Result[2]=$(octal $name)
+			length|sqrt)
 				;;
 			*)
-				Result[1]='(m2c,\040'${Result[1]}
-				Result[2]='m2c_'$(octal $name)
+				Result[0]='this->'${Result[0]}
 				;;
 		esac
-
-		Result[0]=${Result[2]}${Result[1]}
 	fi
 
 	if [ ${context:1:1} -eq 1 ]
@@ -207,27 +216,22 @@ emit_constructor () {
 	local -ar children=${@:1}
 	local -i child=0
 
-	local -a Result=('typedef\040struct\040{\n')
-	local -i size=1
+	local -a Result
+	local -i size=0
 	for child in ${children[@]}
 	do
 		for built in $(emit $child '1'${context:1})
 		do
-			Result[$size]='\t'$built
+			Result[$size]=$built
 			size+=1
 		done
 	done
-	Result[${#Result[@]}]='}\040m2c_t;\n'
-	size+=1
 
 	if [ $size -gt 2 ]
 	then
 		Result[$(($size - 1))]+='\n'
 
-		Result[$size]='m2c_t\040*m2c_mesh2cubes()\040{\n'
-		size+=1
-
-		Result[$size]='\tm2c_t\040*m2c\040=\040(m2c_t\040*)\040calloc((size_t)\0401,\040sizeof(m2c_t));\n\n'
+		Result[$size]='mesh2cubes()\040:\n'
 		size+=1
 
 		for child in ${children[@]}
@@ -245,44 +249,41 @@ emit_constructor () {
 
 				for built in $(emit $child '0'${context:1})
 				do
-					Result[$size]='\tm2c->'${built:${#parameters[0]}+4}
+					Result[$size]='\t'${built:${#parameters[0]}+4:-3}')'
+					Result[$size]=${Result[$size]/'\040=\040'/'('}
+
+					case ${parameters[1]} in
+						zl)
+							Result[$size]=${Result[$size]}'\n'
+							;;
+						*)
+							Result[$size]=${Result[$size]}',\n'
+							;;
+					esac
+
 					size+=1
 				done
 			else
 				case ${parameters[1]} in
-					vertices)
-						Result[$size]='\tm2c->vertices\040=\040(double\040*)\040NULL;\n'
-
-						size+=1
-						;;
-					elements)
-						Result[$size]='\tm2c->elements\040=\040(size_t\040*)\040NULL;\n'
+					vertices|elements)
+						Result[$size]='\t'${parameters[1]}'(),\n'
 
 						size+=1
 						;;
 					grid)
-						Result[$size]='\tm2c->grid\040=\040(uint8_t\040*)\040NULL;\n'
+						Result[$size]='\tgrid((uint8_t\040*)\040NULL),\n'
 
 						size+=1
 						;;
 					*)
-						Result[$size]='\tm2c->'${parameters[1]}'[0]\040=\0400.0;\n'
-						size+=1
-
-						Result[$size]='\tm2c->'${parameters[1]}'[1]\040=\0400.0;\n'
-						size+=1
-
-						Result[$size]='\tm2c->'${parameters[1]}'[2]\040=\0400.0;\n'
+						Result[$size]='\t'${parameters[1]}'{0.0,\0400.0,\0400.0},\n'
 						size+=1
 						;;
 				esac
 			fi
 		done
 
-		Result[$size]='\n\treturn\040m2c;\n'
-		size+=1
-
-		Result[$size]='}\n'
+		Result[$size]='{}\n'
 		size+=1
 	fi
 
@@ -301,7 +302,7 @@ emit_dot() {
 		triangles)
 			case $parameter in
 				size)
-					echo 'm2c->count'
+					echo 'this->count'
 					;;
 			esac
 			;;
@@ -321,13 +322,13 @@ emit_dot() {
 		*)
 			case $parameter in
 				x)
-					echo 'm2c->'$name'[0]'
+					echo 'this->'$name'[0]'
 					;;
 				y)
-					echo 'm2c->'$name'[1]'
+					echo 'this->'$name'[1]'
 					;;
 				z)
-					echo 'm2c->'$name'[2]'
+					echo 'this->'$name'[2]'
 					;;
 			esac
 			;;
@@ -339,13 +340,13 @@ emit_dotVertex () {
 
 	case ${T[${2:?}]} in
 		x)
-			echo 'm2c->vertices[3\040*\040'$name']'
+			echo 'this->vertices[3\040*\040'$name']'
 			;;
 		y)
-			echo 'm2c->vertices[3\040*\040'$name'\040+\0401]'
+			echo 'this->vertices[3\040*\040'$name'\040+\0401]'
 			;;
 		z)
-			echo 'm2c->vertices[3\040*\040'$name'\040+\0402]'
+			echo 'this->vertices[3\040*\040'$name'\040+\0402]'
 			;;
 	esac
 }
@@ -388,31 +389,21 @@ emit_function () {
 	local -i size=${#parameters[@]}
 	local -r context='0'${context:1}
 
-	local -a Result=('static\040')
+	local -a Result
 	case $name in
 		length)
-			Result[0]=${Result[0]}'inline\040double'
+			Result[0]='static\040inline\040double'
 			;;
 		*)
-			Result[0]=${Result[0]}'void'
+			Result[0]='void'
 			;;
 	esac
 
-	Result[0]=${Result[0]}'\040m2c_'$(octal $name)'('
-	if [ $name != 'length' ]
-	then
-		Result[0]=${Result[0]}'m2c_t\040*m2c'
-	fi
+	Result[0]=${Result[0]}'\040'$(octal $name)'('
 
 	if [ $size -gt 0 ]
 	then
-		if [ $name = 'length' ]
-		then
-			size=0
-		else
-			size=2
-		fi
-
+		size=0
 		for parameter in ${parameters[@]}
 		do
 			if [ $size -gt 0 ]
@@ -434,22 +425,9 @@ emit_function () {
 			Result[0]=${Result[0]}$parameter
 			size+=1
 
-			if [ $(($size % 2)) -eq 0 ]
+			if [[ $size -gt 1 && $(($size % 2)) -eq 0 && ${parameters[$(($size - 2))]} = 'Vector3d' ]]
 			then
-				case $name in
-					length)
-						if [ ${parameters[$(($size - 2))]} = 'Vector3d' ]
-						then
-							Result[0]=${Result[0]}'[3]'
-						fi
-						;;
-					*)
-						if [ ${parameters[$(($size - 4))]} = 'Vector3d' ]
-						then
-							Result[0]=${Result[0]}'[3]'
-						fi
-						;;
-				esac
+				Result[0]=${Result[0]}'[3]'
 			fi
 		done
 	fi
@@ -495,7 +473,7 @@ emit_identifier () {
 }
 
 emit_identifierThis () {
-	echo 'm2c->'${T[${1:?}]}
+	echo 'this->'${T[${1:?}]}
 }
 
 emit_identifierVector3d () {
@@ -569,9 +547,9 @@ emit_minusAssignVertex () {
 	local -r value=$(lvalue ${2:?})
 	local -a Result
 
-	Result[0]='m2c->vertices[3\040*\040'$name']\040-=\040'$value'[0];\n'
-	Result[1]='m2c->vertices[3\040*\040'$name'\040+\0401]\040-=\040'$value'[1];\n'
-	Result[2]='m2c->vertices[3\040*\040'$name'\040+\0402]\040-=\040'$value'[2];\n'
+	Result[0]='this->vertices[3\040*\040'$name']\040-=\040'$value'[0];\n'
+	Result[1]='this->vertices[3\040*\040'$name'\040+\0401]\040-=\040'$value'[1];\n'
+	Result[2]='this->vertices[3\040*\040'$name'\040+\0402]\040-=\040'$value'[2];\n'
 
 	echo ${Result[@]}
 }
@@ -597,7 +575,7 @@ emit_multiplyInt () {
 
 emit_newGrid () {
 	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}) $(rvalue ${3:?}))
-	Result[3]='m2c->grid\040=\040(uint8_t\040*)\040calloc(('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403,\040sizeof(uint8_t));\n'
+	Result[3]='this->grid\040=\040(uint8_t\040*)\040new\040uint8_t[('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403]\040{};\n'
 
 	echo ${Result[@]}
 }
@@ -649,9 +627,9 @@ emit_triangle () {
 	local -a Result
 
 	Result[0]=$(rvalue ${1:?})
-	Result[1]='m2c->elements['${Result[0]}'\040+\0401]'
-	Result[2]='m2c->elements['${Result[0]}'\040+\0402]'
-	Result[0]='m2c->elements['${Result[0]}']'
+	Result[1]='this->elements['${Result[0]}'\040+\0401]'
+	Result[2]='this->elements['${Result[0]}'\040+\0402]'
+	Result[0]='this->elements['${Result[0]}']'
 
 	echo $(join ',\040' ${Result[@]})
 }
@@ -688,11 +666,10 @@ emit_var() {
 
 				case ${attributes[0]} in
 					index)
-						attributes[0]='size_t'
-						name='*'$name
+						attributes[0]='std::vector<size_t>'
 						;;
 					*)
-						name='*'$name
+						attributes[0]='std::vector<'${attributes[0]}'>'
 						;;
 				esac
 				;;
@@ -816,17 +793,17 @@ emit_vertex () {
 
 	if [ $cut -eq 1 ]
 	then
-		Result[0]='m2c->vertices['$((3 * $name))']'
-		Result[1]='m2c->vertices['$((3 * $name + 1))']'
-		Result[2]='m2c->vertices['$((3 * $name + 2))']'
+		Result[0]='this->vertices['$((3 * $name))']'
+		Result[1]='this->vertices['$((3 * $name + 1))']'
+		Result[2]='this->vertices['$((3 * $name + 2))']'
 	else
 		Result[0]=$(rvalue $name)
-		Result[1]='m2c->vertices[3\040\052\040'${Result[0]}'\040+\0401]'
-		Result[2]='m2c->vertices[3\040\052\040'${Result[0]}'\040+\0402]'
-		Result[0]='m2c->vertices[3\040\052\040'${Result[0]}']'
+		Result[1]='this->vertices[3\040\052\040'${Result[0]}'\040+\0401]'
+		Result[2]='this->vertices[3\040\052\040'${Result[0]}'\040+\0402]'
+		Result[0]='this->vertices[3\040\052\040'${Result[0]}']'
 	fi
 
 	echo $(join ':' ${Result[@]})
 }
 
-. ./build.sh c
+. ./build.sh cxx

@@ -25,9 +25,9 @@ translate () {
 
 		for (( i=1 ; i < $size ; ++i ))
 		do
-			local -r x=${vertices[$((3 * $i))]}
-			local -r y=${vertices[$((3 * $i + 1))]}
-			local -r z=${vertices[$((3 * $i + 2))]}
+			local x=${vertices[$((3 * $i))]}
+			local y=${vertices[$((3 * $i + 1))]}
+			local z=${vertices[$((3 * $i + 2))]}
 
 			if [ $(echo $x ${min[0]} | awk '{ print($1 < $2) }') -gt 0 ]
 			then
