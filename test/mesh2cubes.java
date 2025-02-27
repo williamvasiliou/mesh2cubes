@@ -1,9 +1,12 @@
-import java.io.IOException;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.InputStreamReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.Class;
 import java.lang.ProcessBuilder;
 import java.util.ArrayList;
@@ -66,7 +69,7 @@ public final class mesh2cubes {
 		}
 	}
 
-	public static final void start(String test, ProcessBuilder pb) throws ClassNotFoundException, IllegalAccessException, InterruptedException, IOException, NoSuchFieldException {
+	public static final void start(String test, ProcessBuilder pb, String outfile) throws ClassNotFoundException, IllegalAccessException, InterruptedException, IOException, NoSuchFieldException {
 		final ArrayList<String> lines = new ArrayList<String>();
 
 		final Class testClass = Class.forName(test);
@@ -80,6 +83,28 @@ public final class mesh2cubes {
 		p.waitFor();
 
 		assert expected.actual(lines, error) : error;
+
+		if (outfile != null) {
+			final String document = Static.format(Static.getDocument(lines, error));
+
+			if (outfile.length() > 0) {
+				File path = new File(outfile);
+
+				if (path.exists()) {
+					outfile = null;
+				} else {
+					PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(path)));
+					out.println(document);
+					out.close();
+				}
+			} else {
+				outfile = null;
+			}
+
+			if (outfile == null) {
+				System.out.println(document);
+			}
+		}
 	}
 
 	public static final void main(String[] args) throws ClassNotFoundException, IllegalAccessException, InterruptedException, IOException, NoSuchFieldException {
@@ -94,12 +119,20 @@ public final class mesh2cubes {
 				if (path.exists()) {
 					String argument = path.getAbsolutePath();
 
-					for (String test : tests) {
+					if (args.length > 1) {
 						ProcessBuilder pb = builder(target, extension, argument);
 						pb.directory(directory);
 						pb.redirectErrorStream(true);
 
-						start(test, pb);
+						start(args[1], pb, args.length > 2 ? args[2] : "");
+					} else {
+						for (String test : tests) {
+							ProcessBuilder pb = builder(target, extension, argument);
+							pb.directory(directory);
+							pb.redirectErrorStream(true);
+
+							start(test, pb, null);
+						}
 					}
 				}
 			}

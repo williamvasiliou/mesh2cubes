@@ -25,26 +25,21 @@ public final class Cubes {
 	}
 
 	public Document render(int zr, int xr, int x, int y, int z) {
-		final Document tbody = new Document();
-		tbody.setName("tbody");
-
 		final HashSet<String> layer = this.layer(y);
 
+		String table = "<table id=\"grid\"><tbody>";
 		for (int i = z; i < zr; ++i) {
-			final Document tr = new Document();
-			tr.setName("tr");
+			table += "<tr>";
 
 			for (int j = x; j < xr; ++j) {
-				final Document td = new Document();
-				td.setName("td");
-				td.addChild(new Document(String.format("<span%s></span>", layer.contains(String.format("%d,%d", i, j)) ? " class=\"cube\"" : "")));
-				tr.addChild(td);
+				table += String.format("<td><span%s</span></td>", layer.contains(String.format("%d,%d", i, j)) ? " class=\"cube\"><input type=\"checkbox\" />" : ">");
 			}
 
-			tbody.addChild(tr);
+			table += "</tr>";
 		}
 
-		return tbody;
+		table += "</tbody></table>";
+		return new Document(table);
 	}
 
 	public int size() {

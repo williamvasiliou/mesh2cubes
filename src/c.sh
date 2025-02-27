@@ -597,7 +597,11 @@ emit_multiplyInt () {
 
 emit_newGrid () {
 	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}) $(rvalue ${3:?}))
-	Result[3]='m2c->grid\040=\040(uint8_t\040*)\040calloc(('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403,\040sizeof(uint8_t));\n'
+	Result[2]+='\n'
+	Result[3]='if\040(m2c->grid)\040{\n'
+	Result[4]='\tfree(m2c->grid);\n'
+	Result[5]='}\n'
+	Result[6]='m2c->grid\040=\040(uint8_t\040*)\040calloc(('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403,\040sizeof(uint8_t));\n'
 
 	echo ${Result[@]}
 }

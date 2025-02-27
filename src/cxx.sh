@@ -575,7 +575,11 @@ emit_multiplyInt () {
 
 emit_newGrid () {
 	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}) $(rvalue ${3:?}))
-	Result[3]='this->grid\040=\040(uint8_t\040*)\040new\040uint8_t[('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403]\040{};\n'
+	Result[2]+='\n'
+	Result[3]='if\040(this->grid)\040{\n'
+	Result[4]='\tdelete[]\040this->grid;\n'
+	Result[5]='}\n'
+	Result[6]='this->grid\040=\040(uint8_t\040*)\040new\040uint8_t[('$(rvalue ${4:?})'\040*\040'$(rvalue ${5:?})'\040*\040'$(rvalue ${6:?})'\040+\0408)\040>>\0403]\040{};\n'
 
 	echo ${Result[@]}
 }

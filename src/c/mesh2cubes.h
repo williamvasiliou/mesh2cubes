@@ -113,6 +113,10 @@ static void m2c_translate(m2c_t *m2c) {
 		m2c->xl = 2 * m2c->xr + 1;
 		m2c->yl = 2 * m2c->yr + 1;
 		m2c->zl = 2 * m2c->zr + 1;
+
+		if (m2c->grid) {
+			free(m2c->grid);
+		}
 		m2c->grid = (uint8_t *) calloc((m2c->xl * m2c->yl * m2c->zl + 8) >> 3, sizeof(uint8_t));
 	}
 }

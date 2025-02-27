@@ -103,6 +103,10 @@ class mesh2cubes {
 				this->xl = 2 * this->xr + 1;
 				this->yl = 2 * this->yr + 1;
 				this->zl = 2 * this->zr + 1;
+
+				if (this->grid) {
+					delete[] this->grid;
+				}
 				this->grid = (uint8_t *) new uint8_t[(this->xl * this->yl * this->zl + 8) >> 3] {};
 			}
 		}
