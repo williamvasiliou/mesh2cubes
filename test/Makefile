@@ -1,6 +1,6 @@
 SRC := ../src
 TARGETS := all clean
-SUBDIRS := awk bash c cxx java
+SUBDIRS := awk bash c cxx java perl
 
 CC := gcc
 CXX := g++

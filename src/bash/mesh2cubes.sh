@@ -20,8 +20,8 @@ length () {
 translate () {
 	if [ $size -gt 0 ]
 	then
-		min=(${vertices[0]} ${vertices[1]} ${vertices[2]})
-		max=(${vertices[0]} ${vertices[1]} ${vertices[2]})
+		min=(${vertices[@]:0:3})
+		max=(${vertices[@]:0:3})
 
 		for (( i=1 ; i < $size ; ++i ))
 		do
@@ -86,9 +86,9 @@ cube () {
 }
 
 triangle () {
-	local -ar A=(${vertices[$((3 * $1))]} ${vertices[$((3 * $1 + 1))]} ${vertices[$((3 * $1 + 2))]})
-	local -ar B=(${vertices[$((3 * $2))]} ${vertices[$((3 * $2 + 1))]} ${vertices[$((3 * $2 + 2))]})
-	local -ar C=(${vertices[$((3 * $3))]} ${vertices[$((3 * $3 + 1))]} ${vertices[$((3 * $3 + 2))]})
+	local -ar A=(${vertices[@]:3 * $1:3})
+	local -ar B=(${vertices[@]:3 * $2:3})
+	local -ar C=(${vertices[@]:3 * $3:3})
 	local -a u=($(echo ${B[0]} ${A[0]} | awk '{ print $1 - $2 }') $(echo ${B[1]} ${A[1]} | awk '{ print $1 - $2 }') $(echo ${B[2]} ${A[2]} | awk '{ print $1 - $2 }'))
 	local -a v=($(echo ${C[0]} ${A[0]} | awk '{ print $1 - $2 }') $(echo ${C[1]} ${A[1]} | awk '{ print $1 - $2 }') $(echo ${C[2]} ${A[2]} | awk '{ print $1 - $2 }'))
 	local -r IIuII=$(length ${u[@]})

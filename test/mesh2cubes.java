@@ -24,6 +24,7 @@ public final class mesh2cubes {
 		extensions.put("c", "");
 		extensions.put("cxx", "");
 		extensions.put("java", "java");
+		extensions.put("perl", "pl");
 	}
 
 	public static final float intBitsToFloat(byte b1, byte b2, byte b3, byte b4) {
@@ -64,6 +65,8 @@ public final class mesh2cubes {
 				return new ProcessBuilder(argument);
 			case "java":
 				return new ProcessBuilder(target, "-cp", "../../src/java", argument);
+			case "perl":
+				return new ProcessBuilder(target, "-I", "../../src/perl", argument);
 			default:
 				return new ProcessBuilder(target, argument);
 		}

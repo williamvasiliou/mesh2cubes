@@ -652,21 +652,13 @@ emit_var() {
 emit_vertex () {
 	local -ir cut=${1:?}
 	local -ir name=${2:?}
-	local -a Result
 
 	if [ $cut -eq 1 ]
 	then
-		Result[0]='${vertices['$((3 * $name))']}'
-		Result[1]='${vertices['$((3 * $name + 1))']}'
-		Result[2]='${vertices['$((3 * $name + 2))']}'
+		echo '(${vertices[@]:'$((3 * $name))':3})'
 	else
-		Result[0]=$(rvalue $name)
-		Result[1]='${vertices[$((3\040*\040'${Result[0]}'\040+\0401))]}'
-		Result[2]='${vertices[$((3\040*\040'${Result[0]}'\040+\0402))]}'
-		Result[0]='${vertices[$((3\040*\040'${Result[0]}'))]}'
+		echo '(${vertices[@]:3\040*\040'$(rvalue $name)':3})'
 	fi
-
-	echo '('$(join '\040' ${Result[@]})')'
 }
 
 . ./build.sh bash
