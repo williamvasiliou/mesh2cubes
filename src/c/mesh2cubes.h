@@ -1,4 +1,6 @@
 #ifndef MESH2CUBES_H
+#define MESH2CUBES_H
+
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>

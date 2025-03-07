@@ -445,15 +445,15 @@ emit () {
 }
 
 target () {
-	local -Ar targets=('awk' 1 'bash' 2 'c' 3 'cxx' 4 'java' 5 'perl' 6)
+	local -Ar targets=('ada' 1 'awk' 2 'bash' 3 'c' 4 'cxx' 5 'java' 6 'perl' 7)
 	echo ${targets[$1]:?}
 }
 
 build () {
 	local -ir index=$((${1:?} - 1))
-	local -ar subdirs=('awk' 'bash' 'c' 'cxx' 'java' 'perl')
+	local -ar subdirs=('ada' 'awk' 'bash' 'c' 'cxx' 'java' 'perl')
 	local -r mesh2cubes='mesh2cubes'
-	local -ar extensions=('awk' 'sh' 'h' 'hpp' 'java' 'pm')
+	local -ar extensions=('adb' 'awk' 'sh' 'h' 'hpp' 'java' 'pm')
 
 	local -r subdir=${subdirs[$index]}
 	local -r extension=${extensions[$index]}

@@ -431,23 +431,17 @@ emit_if () {
 
 	Result[0]='if\040('$(rvalue ${children[0]:?})')\040{\n'
 
-	for child in ${children[1]:?}
+	for built in $(emit ${children[1]:?} ${context:0:1}'1')
 	do
-		for built in $(emit $child ${context:0:1}'1')
-		do
-			Result[${#Result[@]}]=$built
-		done
+		Result[${#Result[@]}]=$built
 	done
 
 	if [ $size -eq 3 ]
 	then
 		Result[${#Result[@]}]='}\040else\040{\n'
-		for child in ${children[2]}
+		for built in $(emit ${children[2]:?} ${context:0:1}'1')
 		do
-			for built in $(emit $child ${context:0:1}'1')
-			do
-				Result[${#Result[@]}]=$built
-			done
+			Result[${#Result[@]}]=$built
 		done
 	fi
 

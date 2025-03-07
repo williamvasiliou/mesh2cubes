@@ -11,13 +11,14 @@ rvalue () {
 emit_mesh2cubes () {
 	local -a Result
 	Result[0]='#ifndef\040MESH2CUBES_H\n'
-	Result[1]='#include\040<cmath>\n'
-	Result[2]='#include\040<cstdint>\n'
-	Result[3]='#include\040<vector>\n\n'
+	Result[1]='#define\040MESH2CUBES_H\n\n'
+	Result[2]='#include\040<cmath>\n'
+	Result[3]='#include\040<cstdint>\n'
+	Result[4]='#include\040<vector>\n\n'
 
-	Result[4]='class\040mesh2cubes\040{\n'
-	Result[5]='\tpublic:\n'
-	local -i size=6
+	Result[5]='class\040mesh2cubes\040{\n'
+	Result[6]='\tpublic:\n'
+	local -i size=7
 
 	for child in ${children[@]}
 	do
@@ -489,23 +490,17 @@ emit_if () {
 
 	Result[0]='if\040('$(rvalue ${children[0]:?})')\040{\n'
 
-	for child in ${children[1]:?}
+	for built in $(emit ${children[1]:?} ${context:0:1}'1')
 	do
-		for built in $(emit $child ${context:0:1}'1')
-		do
-			Result[${#Result[@]}]=$built
-		done
+		Result[${#Result[@]}]=$built
 	done
 
 	if [ $size -eq 3 ]
 	then
 		Result[${#Result[@]}]='}\040else\040{\n'
-		for child in ${children[2]}
+		for built in $(emit ${children[2]:?} ${context:0:1}'1')
 		do
-			for built in $(emit $child ${context:0:1}'1')
-			do
-				Result[${#Result[@]}]=$built
-			done
+			Result[${#Result[@]}]=$built
 		done
 	fi
 

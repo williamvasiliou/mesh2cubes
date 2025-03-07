@@ -1,4 +1,6 @@
 #ifndef MESH2CUBES_H
+#define MESH2CUBES_H
+
 #include <cmath>
 #include <cstdint>
 #include <vector>

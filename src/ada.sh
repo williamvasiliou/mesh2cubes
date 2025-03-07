@@ -9,11 +9,11 @@ rvalue () {
 }
 
 emit_mesh2cubes () {
+	local -ir constructor=${children[1]:?}
+
 	local -a Result
-	Result[0]='import\040java.lang.Math;\n'
-	Result[1]='import\040java.util.ArrayList;\n\n'
-	Result[2]='public\040final\040class\040mesh2cubes\040{\n'
-	local -i size=3
+	Result[0]='package\040body\040mesh2cubes\040is\n'
+	local -i size=1
 
 	for child in ${children[@]}
 	do
@@ -32,13 +32,26 @@ emit_mesh2cubes () {
 			done
 		fi
 	done
-	Result[$size]='}\n'
+
+	if [ $constructor -gt 0 ]
+	then
+		Result[$size]='begin\n'
+		size+=1
+
+		for built in $(emit $constructor '0'${context:1})
+		do
+			Result[$size]='\t'$built
+			size+=1
+		done
+	fi
+	Result[$size]='end\040mesh2cubes;\n'
 
 	echo ${Result[@]}
 }
 
 emit_addAssignDouble () {
-	local -r Result=$(lvalue ${1:?})'\040+=\040'$(rvalue ${2:?})
+	local -r name=$(lvalue ${1:?})
+	local -r Result=$name'\040:=\040'$name'\040+\040'$(rvalue ${2:?})
 
 	if [ ${context:1:1} -eq 1 ]
 	then
@@ -49,7 +62,8 @@ emit_addAssignDouble () {
 }
 
 emit_addAssignInt () {
-	local -r Result=$(lvalue ${1:?})'\040+=\040'$(rvalue ${2:?})
+	local -r name=$(lvalue ${1:?})
+	local -r Result=$name'\040:=\040'$name'\040+\040'$(rvalue ${2:?})
 
 	if [ ${context:1:1} -eq 1 ]
 	then
@@ -64,9 +78,9 @@ emit_addAssignVector3d () {
 	local -r value=$(lvalue ${2:?})
 	local -a Result
 
-	Result[0]=$name'[0]\040+=\040'$value'[0];\n'
-	Result[1]=$name'[1]\040+=\040'$value'[1];\n'
-	Result[2]=$name'[2]\040+=\040'$value'[2];\n'
+	Result[0]=$name'\040(1)\040:=\040'$name'\040(1)\040+\040'$value'\040(1);\n'
+	Result[1]=$name'\040(2)\040:=\040'$name'\040(2)\040+\040'$value'\040(2);\n'
+	Result[2]=$name'\040(3)\040:=\040'$name'\040(3)\040+\040'$value'\040(3);\n'
 
 	echo ${Result[@]}
 }
@@ -84,30 +98,30 @@ emit_addLow () {
 }
 
 emit_and () {
-	echo $(rvalue ${1:?})'\040&&\040'$(rvalue ${2:?})
+	echo $(rvalue ${1:?})'\040and\040then\040'$(rvalue ${2:?})
 }
 
 emit_assignDouble () {
-	echo $(lvalue ${1:?})'\040=\040'$(rvalue ${2:?})';\n'
+	echo $(lvalue ${1:?})'\040:=\040'$(rvalue ${2:?})';\n'
 }
 
 emit_assignGrid () {
-	echo 'this.grid['$(rvalue ${1:?})']['$(rvalue ${2:?})']['$(rvalue ${3:?})']\040=\040true;\n'
+	echo 'grid\040('$(rvalue ${1:?})',\040'$(rvalue ${2:?})',\040'$(rvalue ${3:?})')\040:=\040True;\n'
 }
 
 emit_assignInt () {
-	echo $(lvalue ${1:?})'\040=\040'$(rvalue ${2:?})';\n'
+	echo $(lvalue ${1:?})'\040:=\040'$(rvalue ${2:?})';\n'
 }
 
 emit_assignVector3d () {
-	echo $(lvalue ${1:?})'\040=\040'$(rvalue ${2:?})';\n'
+	echo $(lvalue ${1:?})'\040:=\040'$(rvalue ${2:?})';\n'
 }
 
 emit_averageVector3d () {
 	local -r name=$(lvalue ${1:?})
 	local -r value=$(lvalue ${2:?})
 
-	echo 'new\040double[]\040{'$name'[0]\040/\0402.0\040+\040'$value'[0]\040/\0402.0,\040'$name'[1]\040/\0402.0\040+\040'$value'[1]\040/\0402.0,\040'$name'[2]\040/\0402.0\040+\040'$value'[2]\040/\0402.0}'
+	echo '('$name'\040(1)\040/\0402.0\040+\040'$value'\040(1)\040/\0402.0,\040'$name'\040(2)\040/\0402.0\040+\040'$value'\040(2)\040/\0402.0,\040'$name'\040(3)\040/\0402.0\040+\040'$value'\040(3)\040/\0402.0)'
 }
 
 emit_call () {
@@ -127,12 +141,7 @@ emit_call () {
 			Result[${#Result[@]}]=$(rvalue $child)
 		done
 
-		Result[0]=$(octal $name)'('$(join ',\040' ${Result[@]})')'
-	fi
-
-	if [ $name = 'sqrt' ]
-	then
-		Result[0]='Math.'${Result[0]}
+		Result[0]=$(octal $name)'\040('$(join ',\040' ${Result[@]})')'
 	fi
 
 	if [ ${context:1:1} -eq 1 ]
@@ -144,7 +153,7 @@ emit_call () {
 }
 
 emit_ceil () {
-	echo '(int)\040Math.ceil('$(rvalue ${1:?})')'
+	echo 'Ceil('$(rvalue ${1:?})')'
 }
 
 emit_compareDouble () {
@@ -182,11 +191,23 @@ emit_constructor () {
 	local -a parameters
 	for child in ${children[@]}
 	do
+		parameters=($(cut ':' ${T[$child]}))
+		parameters=($(cut ',' ${parameters[1]}))
+
+		case ${parameters[1]} in
+			vertices|elements|grid)
+				if [ ${context:0:1} -eq 0 ]
+				then
+					continue
+				fi
+				;;
+		esac
+
 		case ${T[$child]} in
 			var:size.elements*)
 				;;
 			*)
-				for built in $(emit $child '1'${context:1})
+				for built in $(emit $child $context)
 				do
 					Result[$size]=$built
 					size+=1
@@ -194,58 +215,6 @@ emit_constructor () {
 				;;
 		esac
 	done
-
-	if [ $size -gt 0 ]
-	then
-		Result[$(($size - 1))]+='\n'
-
-		Result[$size]='public\040mesh2cubes\040()\040{\n'
-		size+=1
-
-		for child in ${children[@]}
-		do
-			parameters=($(cut ':' ${T[$child]}))
-			parameters=($(cut ',' ${parameters[1]}))
-
-			if [ ${#parameters[@]} -gt 2 ]
-			then
-				case ${parameters[0]} in
-					size.elements)
-						continue
-						;;
-					index|size*)
-						parameters[0]='int'
-						;;
-				esac
-
-				for built in $(emit $child '0'${context:1})
-				do
-					Result[$size]='\tthis.'${built:${#parameters[0]}+4}
-					size+=1
-				done
-			else
-				case ${parameters[1]} in
-					vertices)
-						Result[$size]='\tthis.vertices\040=\040new\040ArrayList<Double>();\n'
-						size+=1
-						;;
-					elements)
-						Result[$size]='\tthis.elements\040=\040new\040ArrayList<Integer>();\n'
-						size+=1
-						;;
-					grid)
-						;;
-					*)
-						Result[$size]='\tthis.'${parameters[1]}'\040=\040new\040double[]\040{0.0,\0400.0,\0400.0};\n'
-						size+=1
-						;;
-				esac
-			fi
-		done
-
-		Result[$size]='}\n'
-		size+=1
-	fi
 
 	echo ${Result[@]}
 }
@@ -260,18 +229,22 @@ emit_dot() {
 
 	case $name in
 		triangles)
-			echo 'this.elements.'$parameter'()'
+			case $parameter in
+				size)
+					echo 'elements'\''Range'\''Last'
+					;;
+			esac
 			;;
 		*)
 			case $parameter in
 				x)
-					echo $name'[0]'
+					echo $name'\040(1)'
 					;;
 				y)
-					echo $name'[1]'
+					echo $name'\040(2)'
 					;;
 				z)
-					echo $name'[2]'
+					echo $name'\040(3)'
 					;;
 			esac
 			;;
@@ -283,13 +256,13 @@ emit_dotVertex () {
 
 	case ${T[${2:?}]} in
 		x)
-			echo 'this.vertices.get(3\040*\040'$name')'
+			echo 'vertices\040(3\040*\040'$name'\040+\0401)'
 			;;
 		y)
-			echo 'this.vertices.get(3\040*\040'$name'\040+\0401)'
+			echo 'vertices\040(3\040*\040'$name'\040+\0402)'
 			;;
 		z)
-			echo 'this.vertices.get(3\040*\040'$name'\040+\0402)'
+			echo 'vertices\040(3\040*\040'$name'\040+\0403)'
 			;;
 	esac
 }
@@ -299,29 +272,35 @@ emit_double () {
 }
 
 emit_floor () {
-	echo '(int)\040Math.floor('$(rvalue ${1:?})')'
+	echo 'Floor('$(rvalue ${1:?})')'
 }
 
 emit_for () {
-	local -a Result=('for\040('$(rvalue ${1:?})';\040'$(rvalue ${2:?})';\040'$(rvalue ${3:?})')\040{\n')
+	local -a Result
+	Result[0]=$(rvalue ${1:?})';\n'
+	Result[1]='while\040'$(rvalue ${2:?})'\040loop\n'
 
 	for built in $(emit ${4:?} ${context:0:1}'1')
 	do
 		Result[${#Result[@]}]=$built
 	done
-	Result[${#Result[@]}]='}\n'
+	Result[${#Result[@]}]='\t'$(rvalue ${3:?})';\n'
+	Result[${#Result[@]}]='end\040loop;\n'
 
 	echo ${Result[@]}
 }
 
 emit_forDouble () {
-	local -a Result=('for\040('$(rvalue ${1:?})';\040'$(rvalue ${2:?})';\040'$(rvalue ${3:?})')\040{\n')
+	local -a Result
+	Result[0]=$(rvalue ${1:?})';\n'
+	Result[1]='while\040'$(rvalue ${2:?})'\040loop\n'
 
 	for built in $(emit ${4:?} ${context:0:1}'1')
 	do
 		Result[${#Result[@]}]=$built
 	done
-	Result[${#Result[@]}]='}\n'
+	Result[${#Result[@]}]='\t'$(rvalue ${3:?})';\n'
+	Result[${#Result[@]}]='end\040loop;\n'
 
 	echo ${Result[@]}
 }
@@ -332,49 +311,57 @@ emit_function () {
 	local -i size=${#parameters[@]}
 	local -r context='0'${context:1}
 
-	local -a Result=('public\040')
+	local -a Result
 	case $name in
 		length)
-			Result[0]=${Result[0]}'double'
+			Result[0]='function'
 			;;
 		*)
-			Result[0]=${Result[0]}'void'
+			Result[0]='procedure'
 			;;
 	esac
 
-	Result[0]=${Result[0]}'\040'$(octal $name)'\040('
+	Result[0]=${Result[0]}'\040'$(octal $name)
 	if [ $size -gt 0 ]
 	then
+		Result[0]=${Result[0]}'\040('
+
 		size=0
 		for parameter in ${parameters[@]}
 		do
-			if [ $size -gt 0 ]
-			then
-				if [ $(($size % 2)) -eq 0 ]
-				then
-					Result[0]=${Result[0]}','
-				fi
-
-				Result[0]=${Result[0]}'\040'
-			fi
-
 			if [ $(($size % 2)) -eq 0 ]
 			then
-				parameter=${parameter/Vector3d/'double[]'}
-				parameter=${parameter/index/int}
+				if [ $size -gt 1 ]
+				then
+					Result[0]=${Result[0]}',\040'
+				fi
+
+				Result[1]=${parameter/index/Index}
+			else
+				Result[0]=${Result[0]}$parameter':\040in\040'${Result[1]}
 			fi
 
-			Result[0]=${Result[0]}$parameter
 			size+=1
 		done
-	fi
-	Result[0]=${Result[0]}')\040{\n'
 
+		Result[0]=${Result[0]}')'
+	fi
+
+	case $name in
+		length)
+			Result[0]=${Result[0]}'\040return\040double\040is\n'
+			;;
+		*)
+			Result[0]=${Result[0]}'\040is\n'
+			;;
+	esac
+
+	Result[1]='begin\n'
 	for built in $(emit_glue ${children[@]})
 	do
 		Result[${#Result[@]}]=$built
 	done
-	Result[${#Result[@]}]='}\n'
+	Result[${#Result[@]}]='end\040'$(octal $name)';\n'
 
 	echo ${Result[@]}
 }
@@ -414,8 +401,7 @@ emit_identifierThis () {
 }
 
 emit_identifierVector3d () {
-	local -r name=${T[${1:?}]}
-	echo 'new\040double[]\040{'$name'[0],\040'$name'[1],\040'$name'[2]}'
+	echo ${T[${1:?}]}'\040(1\040..\0403)'
 }
 
 emit_if () {
@@ -424,7 +410,7 @@ emit_if () {
 	local -i child=0
 	local -a Result
 
-	Result[0]='if\040('$(rvalue ${children[0]:?})')\040{\n'
+	Result[0]='if\040'$(rvalue ${children[0]:?})'\040then\n'
 
 	for built in $(emit ${children[1]:?} ${context:0:1}'1')
 	do
@@ -433,24 +419,27 @@ emit_if () {
 
 	if [ $size -eq 3 ]
 	then
-		Result[${#Result[@]}]='}\040else\040{\n'
+		Result[${#Result[@]}]='else\n'
 		for built in $(emit ${children[2]:?} ${context:0:1}'1')
 		do
 			Result[${#Result[@]}]=$built
 		done
 	fi
 
-	Result[${#Result[@]}]='}\n'
+	Result[${#Result[@]}]='end\040if;\n'
 
 	echo ${Result[@]}
 }
 
 emit_ifAssignGrid () {
-	echo $(emit_if ${@:1})
+	local -r Result=$(rvalue ${2:?})
+
+	echo ${Result:2}
 }
 
 emit_increment () {
-	echo '++'$(lvalue ${1:?})
+	local -r name=$(lvalue ${1:?})
+	echo $name'\040:=\040'$name'\040+\0401'
 }
 
 emit_int () {
@@ -458,7 +447,7 @@ emit_int () {
 }
 
 emit_min () {
-	echo 'Math.min('$(rvalue ${1:?})',\040'$(rvalue ${2:?})')'
+	echo 'Min('$(rvalue ${1:?})',\040'$(rvalue ${2:?})')'
 }
 
 emit_minusAssignVector3d () {
@@ -466,9 +455,9 @@ emit_minusAssignVector3d () {
 	local -r value=$(lvalue ${2:?})
 	local -a Result
 
-	Result[0]=$name'[0]\040-=\040'$value'[0];\n'
-	Result[1]=$name'[1]\040-=\040'$value'[1];\n'
-	Result[2]=$name'[2]\040-=\040'$value'[2];\n'
+	Result[0]=$name'\040(1)\040:=\040'$name'\040(1)\040-\040'$value'\040(1);\n'
+	Result[1]=$name'\040(2)\040:=\040'$name'\040(2)\040-\040'$value'\040(2);\n'
+	Result[2]=$name'\040(3)\040:=\040'$name'\040(3)\040-\040'$value'\040(3);\n'
 
 	echo ${Result[@]}
 }
@@ -478,9 +467,9 @@ emit_minusAssignVertex () {
 	local -r value=$(lvalue ${2:?})
 	local -a Result
 
-	Result[0]='this.vertices.set(3\040*\040'$name',\040this.vertices.get(3\040*\040'$name')\040-\040'$value'[0]);\n'
-	Result[1]='this.vertices.set(3\040*\040'$name'\040+\0401,\040this.vertices.get(3\040*\040'$name'\040+\0401)\040-\040'$value'[1]);\n'
-	Result[2]='this.vertices.set(3\040*\040'$name'\040+\0402,\040this.vertices.get(3\040*\040'$name'\040+\0402)\040-\040'$value'[2]);\n'
+	Result[0]='vertices\040(3\040*\040'$name'\040+\0401)\040:=\040vertices\040(3\040*\040'$name'\040+\0401)\040-\040'$value'\040(1);\n'
+	Result[1]='vertices\040(3\040*\040'$name'\040+\0402)\040:=\040vertices\040(3\040*\040'$name'\040+\0402)\040-\040'$value'\040(2);\n'
+	Result[2]='vertices\040(3\040*\040'$name'\040+\0403)\040:=\040vertices\040(3\040*\040'$name'\040+\0403)\040-\040'$value'\040(3);\n'
 
 	echo ${Result[@]}
 }
@@ -493,7 +482,7 @@ emit_minusVector3d () {
 	local -r name=$(lvalue ${1:?})
 	local -r value=$(lvalue ${2:?})
 
-	echo 'new\040double[]\040{'$name'[0]\040-\040'$value'[0],\040'$name'[1]\040-\040'$value'[1],\040'$name'[2]\040-\040'$value'[2]}'
+	echo '('$name'\040(1)\040-\040'$value'\040(1),\040'$name'\040(2)\040-\040'$value'\040(2),\040'$name'\040(3)\040-\040'$value'\040(3))'
 }
 
 emit_multiplyDouble () {
@@ -506,7 +495,7 @@ emit_multiplyInt () {
 
 emit_newGrid () {
 	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}) $(rvalue ${3:?}))
-	Result[3]='this.grid\040=\040new\040boolean['$(rvalue ${4:?})']['$(rvalue ${5:?})']['$(rvalue ${6:?})'];\n'
+	Result[3]='grid:\040Grid(1\040..\040'$(rvalue ${4:?})',\0401\040..\040'$(rvalue ${5:?})',\0401\040..\040'$(rvalue ${6:?})')\040:=\040(others\040=>\040False);\n'
 
 	echo ${Result[@]}
 }
@@ -514,7 +503,7 @@ emit_newGrid () {
 emit_operator () {
 	case ${T[${1:?}]} in
 		eq)
-			echo '=='
+			echo '='
 			;;
 		ge)
 			echo '>='
@@ -529,7 +518,7 @@ emit_operator () {
 			echo '<'
 			;;
 		ne)
-			echo '!='
+			echo '/='
 			;;
 	esac
 }
@@ -547,9 +536,9 @@ emit_scaleVector3d () {
 	local -r value=$(rvalue ${2:?})
 	local -a Result
 
-	Result[0]=$name'[0]\040*=\040'$value';\n'
-	Result[1]=$name'[1]\040*=\040'$value';\n'
-	Result[2]=$name'[2]\040*=\040'$value';\n'
+	Result[0]=$name'\040(1)\040:=\040'$name'\040(1)\040*\040'$value';\n'
+	Result[1]=$name'\040(2)\040:=\040'$name'\040(2)\040*\040'$value';\n'
+	Result[2]=$name'\040(3)\040:=\040'$name'\040(3)\040*\040'$value';\n'
 
 	echo ${Result[@]}
 }
@@ -558,9 +547,9 @@ emit_triangle () {
 	local -a Result
 
 	Result[0]=$(rvalue ${1:?})
-	Result[1]='this.elements.get('${Result[0]}'\040+\0401)'
-	Result[2]='this.elements.get('${Result[0]}'\040+\0402)'
-	Result[0]='this.elements.get('${Result[0]}')'
+	Result[1]='elements\040('${Result[0]}'\040+\0402)'
+	Result[2]='elements\040('${Result[0]}'\040+\0403)'
+	Result[0]='elements\040('${Result[0]}'\040+\0401)'
 
 	echo $(join ',\040' ${Result[@]})
 }
@@ -587,11 +576,6 @@ emit_var() {
 	local value=
 	local Result=
 
-	if [ ${context:0:1} -eq 1 ]
-	then
-		attributes[0]='public'
-	fi
-
 	if [ $cut -eq 1 ]
 	then
 		case ${parameters[0]} in
@@ -599,24 +583,27 @@ emit_var() {
 				attributes[${#attributes[@]}]=${parameters[0]%'[]'}
 
 				case ${attributes[-1]} in
-					index)
-						attributes[${#attributes[@]}]='ArrayList<Integer>'
-						;;
 					*)
-						attributes[${#attributes[@]}]='ArrayList<'${attributes[-1]@u}'>'
+						attributes[${#attributes[@]}]='array\040(Positive\040range\040<>)\040of\040'${attributes[-1]@u}
 						;;
 				esac
-
-				attributes[-2]='final'
 				;;
 			Vector3d)
-				attributes[${#attributes[@]}]='double[]'
+				attributes[${#attributes[@]}]=${parameters[0]}
+
+				if [ $size -lt 3 ]
+				then
+					value='(0.0,\0400.0,\0400.0)'
+				fi
 				;;
 			Grid)
-				attributes[${#attributes[@]}]='boolean[][][]'
+				attributes[${#attributes[@]}]='Grid'
+				;;
+			double)
+				attributes[${#attributes[@]}]='Double'
 				;;
 			index|size*)
-				attributes[${#attributes[@]}]='int'
+				attributes[${#attributes[@]}]='Index'
 				;;
 			*)
 				attributes[${#attributes[@]}]=${parameters[0]}
@@ -634,17 +621,17 @@ emit_var() {
 
 		case $name in
 			*const*)
-				attributes[${#attributes[@]}]='final'
+				attributes[${#attributes[@]}]='constant'
 				name=${name/'const\040'/}
 				;;
 		esac
 
 		case $name in
-			*Vector3d*)
-				attributes[${#attributes[@]}]='double[]'
+			*double*)
+				attributes[${#attributes[@]}]='Double'
 				;;
 			*index*|*size*)
-				attributes[${#attributes[@]}]='int'
+				attributes[${#attributes[@]}]='Index'
 				;;
 			*)
 				attributes[${#attributes[@]}]=$name
@@ -659,21 +646,21 @@ emit_var() {
 		fi
 	fi
 
+	if [ ${#attributes[@]} -gt 0 ]
+	then
+		name+=':\040'$(join '\040' ${attributes[@]})
+	fi
+
 	if [[ -n $name && -n $value ]]
 	then
 		if [ ${context:0:1} -eq 0 ]
 		then
-			Result=$name'\040=\040'$value
+			Result=$name'\040:=\040'$value
 		else
 			Result=$name
 		fi
 	else
 		Result=$name
-	fi
-
-	if [ ${#attributes[@]} -gt 0 ]
-	then
-		Result=$(join '\040' ${attributes[@]})'\040'$Result
 	fi
 
 	if [ ${context:1:1} -eq 1 ]
@@ -687,22 +674,17 @@ emit_var() {
 emit_vertex () {
 	local -ir cut=${1:?}
 	local -ir name=${2:?}
-	local -a Result
+	local Result=
 
 	if [ $cut -eq 1 ]
 	then
-		Result[0]='this.vertices.get('$((3 * $name))')'
-		Result[1]='this.vertices.get('$((3 * $name + 1))')'
-		Result[2]='this.vertices.get('$((3 * $name + 2))')'
+		Result='vertices\040('$((3 * $name + 1))'\040..\040'$((3 * $name + 3))')'
 	else
-		Result[0]=$(rvalue $name)
-		Result[1]='this.vertices.get(3\040*\040'${Result[0]}'\040+\0401)'
-		Result[2]='this.vertices.get(3\040*\040'${Result[0]}'\040+\0402)'
-		Result[0]='this.vertices.get(3\040*\040'${Result[0]}')'
+		Result=$(rvalue $name)
+		Result='vertices\040(3\040*\040'${Result[0]}'\040+\0401\040..\0403\040*\040'${Result[0]}'\040+\0403)'
 	fi
 
-	echo 'new\040double[]\040{'$(join ',\040' ${Result[@]})'}'
+	echo $Result
 }
 
-. ./build.sh java
-javac ./java/mesh2cubes.java
+. ./build.sh ada
