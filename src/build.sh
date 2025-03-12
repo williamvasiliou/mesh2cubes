@@ -195,6 +195,29 @@ octal () {
 	echo $Result
 }
 
+interface () {
+	local -r name="$(basename $0)"
+	local -ar methods=('mesh2cubes' 'addAssignDouble' 'addAssignInt' 'addAssignVector3d' 'addDouble' 'addInt' 'addLow' 'and' 'assignDouble' 'assignGrid' 'assignInt' 'assignVector3d' 'averageVector3d' 'call' 'ceil' 'compareDouble' 'compareInt' 'compareLow' 'constructor' 'declarations' 'declarationsBody' 'divideDouble' 'dot' 'dotCount' 'dotVertex' 'double' 'floor' 'for' 'forDouble' 'function' 'glue' 'identifier' 'identifierThis' 'identifierVector3d' 'if' 'ifAssignGrid' 'increment' 'int' 'min' 'minusAssignVector3d' 'minusAssignVertex' 'minusDouble' 'minusVector3d' 'multiplyDouble' 'multiplyInt' 'newGrid' 'operator' 'parameter' 'parameters' 'positional' 'return' 'scaleVector3d' 'triangle' 'type' 'var' 'vertex')
+	local -i Result=1
+
+	for method in ${methods[@]}
+	do
+		if [ "$(type -t emit_$method)" != 'function' ]
+		then
+			echo "$name: emit_$method: No such method" >&2
+			Result=0
+		fi
+	done
+
+	if [ "$(type -t build_files)" != 'function' ]
+	then
+		echo "$name: build_files: No such method" >&2
+		Result=0
+	fi
+
+	echo $Result
+}
+
 emit () {
 	local -ir R=${1:-0}
 	local -r context=${2:-'11'}
@@ -204,7 +227,7 @@ emit () {
 
 	local -a parameters
 	local -a Result
-	if [ $target -lt 1 ]
+	if [ $target -ne 1 ]
 	then
 		Result[0]=$(octal $root)'\n'
 
@@ -297,12 +320,24 @@ emit () {
 				Result=($(emit_constructor ${children[@]}))
 
 				;;
+			declarations)
+				Result=($(emit_declarations ${children[@]}))
+
+				;;
+			declarationsBody)
+				Result=($(emit_declarationsBody ${children[@]}))
+
+				;;
 			divideDouble)
 				Result=($(emit_divideDouble ${children[@]:0:2}))
 
 				;;
 			dot)
 				Result=($(emit_dot ${children[@]:0:2}))
+
+				;;
+			dotCount)
+				Result=($(emit_dotCount))
 
 				;;
 			dotVertex)
@@ -327,8 +362,7 @@ emit () {
 				;;
 			function:*)
 				parameters=($(cut ':' $root))
-				parameters=($(cut ',' ${parameters[1]}))
-				Result=($(emit_function ${parameters[@]}))
+				Result=($(emit_function ${parameters[1]} ${children[@]}))
 
 				;;
 			glue)
@@ -399,6 +433,14 @@ emit () {
 				Result=($(emit_operator ${children[0]}))
 
 				;;
+			parameter)
+				Result=($(emit_parameter ${children[@]:0:2}))
+
+				;;
+			parameters)
+				Result=($(emit_parameters ${children[@]}))
+
+				;;
 			positional)
 				Result=($(emit_positional ${children[@]:0:2}))
 
@@ -419,14 +461,9 @@ emit () {
 				Result=($(emit_type ${children[@]}))
 
 				;;
-			var)
-				Result=($(emit_var 0 ${children[@]}))
-
-				;;
 			var:*)
 				parameters=($(cut ':' $root))
-				parameters=($(cut ',' ${parameters[1]}))
-				Result=($(emit_var 1 ${parameters[@]}))
+				Result=($(emit_var ${parameters[1]} ${children[@]}))
 
 				;;
 			vertex)
@@ -445,45 +482,70 @@ emit () {
 }
 
 target () {
-	local -Ar targets=('ada' 1 'awk' 2 'bash' 3 'c' 4 'cxx' 5 'java' 6 'perl' 7)
-	echo ${targets[$1]:?}
+	local -Ar targets=('ada' 1 'awk' 1 'bash' 1 'c' 1 'cxx' 1 'java' 1 'perl' 1)
+	echo ${targets[${1:?}]:-0}
+}
+
+build_file () {
+	local -r subdir=${1:?}
+	local -r mesh2cubes=${2:?}
+	local -r extension=${3:?}
+	local -r path="$subdir/$mesh2cubes.$extension"
+
+	if [ -d "$subdir" ]
+	then
+		if [ -a "$path" ]
+		then
+			echo "$(basename $0): cannot create \`$path': File exists" >&2
+		elif [ $# -eq 4 ]
+		then
+			for built in $(emit 0 "${4:?}")
+			do
+				printf "$built" >> "$path"
+			done
+		else
+			for built in $(emit)
+			do
+				printf "$built" >> "$path"
+			done
+		fi
+	else
+		echo "$(basename $0): cannot create \`$path': No such directory" >&2
+	fi
 }
 
 build () {
-	local -ir index=$((${1:?} - 1))
-	local -ar subdirs=('ada' 'awk' 'bash' 'c' 'cxx' 'java' 'perl')
-	local -r mesh2cubes='mesh2cubes'
-	local -ar extensions=('adb' 'awk' 'sh' 'h' 'hpp' 'java' 'pm')
+	local -ir target=${1:?}
 
-	local -r subdir=${subdirs[$index]}
-	local -r extension=${extensions[$index]}
-	local -r path="$subdir/$mesh2cubes.$extension"
-
-	if [[ -d $subdir && ! -a $path ]]
+	if [ $# -eq 2 ]
+	then
+		if [ $target -ne 1 ]
+		then
+			echo "$(basename $0): cannot make \`${2:?}': No such target" >&2
+		elif [ $(interface) -eq 1 ]
+		then
+			build_files "${2:?}" 'mesh2cubes'
+		fi
+	elif [ $target -eq 0 ]
 	then
 		for built in $(emit)
 		do
-			printf $built >> $path
+			printf $built
 		done
 	fi
 }
 
 main () {
-	local -ir target=${1:?}
-
-	local -ar T=('mesh2cubes' 'constructor' 'function:length,Vector3d,v1' 'function:translate' 'function:cube,Vector3d,v1' 'function:triangle,index,a,index,b,index,c' 'function:triangles' 'var:size.vertices,size,0' 'var:double[],vertices' 'var:size.elements,count,0' 'var:index[],elements' 'var:Grid,grid' 'var:Vector3d,min' 'var:Vector3d,max' 'var:Vector3d,mid' 'var:double,c,1.0' 'var:double,t,1.0' 'var:index,xr,0' 'var:index,yr,0' 'var:index,zr,0' 'var:size.grid,xl,0' 'var:size.grid,yl,0' 'var:size.grid,zl,0' 'return' 'if' 'var' 'var' 'var' 'ifAssignGrid' 'var' 'var' 'var' 'var' 'var' 'var' 'var' 'if' 'for' 'call:sqrt' 'compareInt' 'glue' 'type' 'identifier' 'addLow' 'type' 'identifier' 'addLow' 'type' 'identifier' 'addLow' 'and' 'glue' 'type' 'identifier' 'vertex' 'type' 'identifier' 'vertex' 'type' 'identifier' 'vertex' 'type' 'identifier' 'minusVector3d' 'type' 'identifier' 'minusVector3d' 'type' 'identifier' 'call:length' 'type' 'identifier' 'call:length' 'and' 'glue' 'var' 'compareInt' 'addAssignInt' 'glue' 'addDouble' 'identifierThis' 'operator' 'int' 'assignVector3d' 'assignVector3d' 'for' 'assignVector3d' 'for' 'minusAssignVector3d' 'assignDouble' 'assignDouble' 'assignInt' 'assignInt' 'assignInt' 'newGrid' 'const' 'index' 'x' 'floor' 'identifierThis' 'const' 'index' 'y' 'floor' 'identifierThis' 'const' 'index' 'z' 'floor' 'identifierThis' 'and' 'compareInt' 'assignGrid' 'const' 'Vector3d' 'A' 'positional' 'const' 'Vector3d' 'B' 'positional' 'const' 'Vector3d' 'C' 'positional' 'Vector3d' 'u' 'identifier' 'identifier' 'Vector3d' 'v' 'identifier' 'identifier' 'const' 'double' 'IIuII' 'identifier' 'const' 'double' 'IIvII' 'identifier' 'compareDouble' 'compareDouble' 'var' 'var' 'scaleVector3d' 'scaleVector3d' 'var' 'forDouble' 'type' 'identifier' 'int' 'identifier' 'operator' 'dot' 'identifier' 'int' 'call:triangle' 'addDouble' 'multiplyDouble' 'size' 'gt' '0' 'identifierThis' 'vertex:0' 'identifierThis' 'vertex:0' 'var' 'compareInt' 'increment' 'glue' 'identifierThis' 'averageVector3d' 'var' 'compareInt' 'increment' 'glue' 'identifierThis' 'identifierThis' 'identifierThis' 'divideDouble' 'identifierThis' 'identifierThis' 'identifierThis' 'ceil' 'identifierThis' 'ceil' 'identifierThis' 'ceil' 'assignInt' 'assignInt' 'assignInt' 'identifierThis' 'identifierThis' 'identifierThis' 'addDouble' 'xr' 'addDouble' 'yr' 'addDouble' 'zr' 'and' 'compareLow' 'identifier' 'operator' 'identifierThis' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'B' 'A' 'C' 'A' 'u' 'v' 'identifier' 'operator' 'double' 'identifier' 'operator' 'double' 'type' 'identifier' 'min' 'type' 'identifier' 'min' 'identifier' 'identifier' 'identifier' 'identifier' 'type' 'identifier' 'identifierVector3d' 'var' 'compareDouble' 'addAssignDouble' 'glue' 'index' 'i' '0' 'i' 'lt' 'triangles' 'size' 'i' '3' 'triangle' 'multiplyDouble' 'multiplyDouble' 'dot' 'dot' 'min' 'max' 'type' 'identifier' 'int' 'identifier' 'operator' 'identifierThis' 'identifier' 'var' 'var' 'var' 'if' 'if' 'if' 'if' 'if' 'if' 'mid' 'identifierThis' 'identifierThis' 'type' 'identifier' 'int' 'identifier' 'operator' 'identifierThis' 'identifier' 'minusAssignVertex' 'max' 'mid' 'c' 'call:length' 'double' 't' 'c' 'xr' 'minusDouble' 'yr' 'minusDouble' 'zr' 'minusDouble' 'identifierThis' 'addInt' 'identifierThis' 'addInt' 'identifierThis' 'addInt' 'xl' 'yl' 'zl' 'divideDouble' 'double' 'divideDouble' 'double' 'divideDouble' 'double' 'and' 'compareInt' 'identifier' 'operator' 'int' 'z' 'lt' 'zl' 'x' 'y' 'z' '1' 'a' '2' 'b' '3' 'c' 'IIuII' 'gt' '0.0' 'IIvII' 'gt' '0.0' 'const' 'double' 'dy1' 'double' 'divideDouble' 'const' 'double' 'dy2' 'double' 'divideDouble' 'u' 'dy1' 'v' 'dy2' 'Vector3d' 'U' 'A' 'type' 'identifier' 'double' 'identifier' 'operator' 'double' 'identifier' 'identifier' 'var' 'forDouble' 'addAssignVector3d' 'identifier' 'dot' 'dot' 'dot' 'dot' 'v1' 'z' 'v1' 'z' 'index' 'i' '1' 'i' 'lt' 'size' 'i' 'positional' 'identifier' 'dotVertex' 'positional' 'identifier' 'dotVertex' 'positional' 'identifier' 'dotVertex' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'min' 'max' 'index' 'i' '0' 'i' 'lt' 'size' 'i' 'identifier' 'identifierThis' 'identifierThis' '25.0' 'divideDouble' 'double' 'divideDouble' 'double' 'divideDouble' 'double' 'xl' 'multiplyInt' 'int' 'yl' 'multiplyInt' 'int' 'zl' 'multiplyInt' 'int' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'and' 'compareLow' 'identifier' 'operator' 'identifierThis' 'z' 'ge' '0' '1.0' 'identifierThis' 'identifier' '1.0' 'identifierThis' 'identifier' 'double' 'y1' '0.0' 'y1' 'le' '1.0' 'y1' 'dy1' 'type' 'identifier' 'identifierVector3d' 'var' 'compareDouble' 'addAssignDouble' 'glue' 'identifier' 'identifier' 'i' 'v1' 'x' 'v1' 'x' 'v1' 'y' 'v1' 'y' 'type' 'type' 'x' 'identifier' 'x' 'type' 'type' 'y' 'identifier' 'y' 'type' 'type' 'z' 'identifier' 'z' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'i' 'mid' 'max' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'int' 'identifierThis' '1' 'int' 'identifierThis' '1' 'int' 'identifierThis' '1' 'v1' 'x' 'c' 'v1' 'y' 'c' 'v1' 'z' 'c' 'compareLow' 'compareInt' 'identifier' 'operator' 'int' 'y' 'lt' 'yl' 't' 'IIuII' 't' 'IIvII' 'Vector3d' 'V' 'U' 'type' 'identifier' 'double' 'addDouble' 'operator' 'double' 'identifier' 'identifier' 'call:cube' 'addAssignVector3d' 'U' 'u' 'double' 'const' 'double' 'i' 'double' 'const' 'double' 'i' 'double' 'const' 'double' 'i' 'x' 'lt' 'min' 'x' 'dot' 'identifier' 'y' 'lt' 'min' 'y' 'dot' 'identifier' 'z' 'lt' 'min' 'z' 'dot' 'identifier' 'x' 'gt' 'max' 'x' 'dot' 'identifier' 'y' 'gt' 'max' 'y' 'dot' 'identifier' 'z' 'gt' 'max' 'z' 'dot' 'identifier' 'max' 'x' 'c' 'max' 'y' 'c' 'max' 'z' 'c' '2' 'xr' '2' 'yr' '2' 'zr' 'identifier' 'operator' 'int' 'identifier' 'operator' 'identifierThis' 'y' 'ge' '0' 'double' 'y2' '0.0' 'identifier' 'identifier' 'le' '1.0' 'y2' 'dy2' 'identifier' 'identifier' 'identifier' 'min' 'x' 'x' 'min' 'y' 'y' 'min' 'z' 'z' 'max' 'x' 'x' 'max' 'y' 'y' 'max' 'z' 'z' 'x' 'ge' '0' 'x' 'lt' 'xl' 'y1' 'y2' 'V' 'V' 'v')
-	local -ar parent=(0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 3 4 4 4 4 5 5 5 5 5 5 5 5 6 23 24 24 25 25 25 26 26 26 27 27 27 28 28 29 29 29 30 30 30 31 31 31 32 32 32 33 33 33 34 34 34 35 35 35 36 36 37 37 37 37 38 39 39 39 40 40 40 40 40 40 40 40 40 40 40 40 41 41 42 43 43 44 44 45 46 46 47 47 48 49 49 50 50 51 52 52 53 54 55 55 56 57 58 58 59 60 61 62 63 63 64 65 66 66 67 67 68 69 70 70 71 72 73 73 74 74 74 74 74 74 75 75 75 76 76 76 77 77 78 79 79 80 81 82 83 83 84 84 85 85 85 85 86 86 87 87 87 87 88 88 89 89 90 90 91 91 92 92 93 93 94 94 94 94 94 94 98 99 103 104 108 109 110 110 111 111 111 112 112 112 116 116 120 120 124 124 127 128 131 132 136 140 141 141 141 142 142 142 143 143 143 144 144 144 145 145 146 146 147 147 147 148 148 148 148 149 150 151 152 153 154 154 155 156 157 158 158 159 159 163 165 167 167 167 168 168 168 169 170 170 170 170 170 170 170 170 170 171 172 172 173 173 173 174 174 174 175 176 177 178 179 180 180 181 182 183 184 185 186 187 188 189 189 190 190 191 191 192 193 194 195 195 197 197 199 199 201 201 202 202 202 203 204 205 206 207 208 209 210 211 212 213 214 221 222 223 224 225 226 227 227 228 229 229 230 230 231 232 232 233 234 235 236 237 238 239 240 240 240 241 241 241 242 242 243 243 243 253 254 254 255 255 256 256 257 257 260 261 262 263 264 265 266 267 267 267 268 268 268 269 269 269 270 270 271 271 272 272 273 273 274 274 275 275 277 278 279 280 281 282 283 284 285 286 286 290 291 295 295 297 297 299 299 300 301 301 302 303 303 304 305 305 309 309 310 311 311 312 313 313 314 315 315 316 316 316 317 318 319 341 342 342 346 347 347 355 356 357 358 359 360 361 362 363 363 363 364 364 364 364 365 365 366 367 367 368 368 369 369 370 370 382 382 383 384 384 385 385 386 387 387 388 388 389 390 390 391 391 391 392 393 393 393 394 395 395 395 396 397 397 397 398 399 399 399 400 401 401 401 402 412 413 414 416 416 417 418 418 419 420 420 421 423 423 424 426 426 427 429 429 430 431 431 432 434 434 435 437 437 438 440 440 441 441 441 442 443 444 449 450 452 453 462 463 464 465 465 465 466 466 466 467 467 468 468 469 470 480 481 481 483 485 486 486 488 490 491 491 493 495 496 497 497 498 498 499 500 501 501 502 502 503 504 505 505 506 506 507 508 509 509 510 510 511 512 513 513 514 514 515 516 517 517 518 518 522 522 523 525 525 526 528 528 529 531 532 534 535 537 538 549 549 549 550 550 550 551 552 553 564 565 566 567 567 568 569 570 571 572 573 573 592 592 593 598 598 599 604 604 605 610 610 611 616 616 617 622 622 623 639 640 641 642 643 644 651 652 657 658 659)
+	local -ar T=('mesh2cubes' 'constructor' 'function:length' 'function:translate' 'function:cube' 'function:triangle' 'function:triangles' 'var:size' 'var:vertices' 'var:count' 'var:elements' 'var:grid' 'var:min' 'var:max' 'var:mid' 'var:c' 'var:t' 'var:xr' 'var:yr' 'var:zr' 'var:xl' 'var:yl' 'var:zl' 'type' 'parameters' 'declarations' 'return' 'type' 'parameters' 'declarations' 'if' 'type' 'parameters' 'declarationsBody' 'ifAssignGrid' 'type' 'parameters' 'declarationsBody' 'if' 'type' 'parameters' 'declarations' 'for' 'type' 'int' 'type' 'type' 'int' 'type' 'type' 'type' 'type' 'type' 'type' 'double' 'type' 'double' 'type' 'int' 'type' 'int' 'type' 'int' 'type' 'int' 'type' 'int' 'type' 'int' 'static' 'double' 'parameter' 'call:sqrt' 'void' 'var:i' 'var:x' 'var:y' 'var:z' 'compareInt' 'glue' 'void' 'parameter' 'var:x' 'var:y' 'var:z' 'and' 'glue' 'void' 'parameter' 'parameter' 'parameter' 'var:A' 'var:B' 'var:C' 'var:u' 'var:v' 'var:IIuII' 'var:IIvII' 'declarations' 'and' 'glue' 'void' 'var:i' 'var:count' 'var:i' 'compareInt' 'addAssignInt' 'glue' 'size.vertices' '0' 'double[]' 'size.elements' '0' 'index[]' 'Grid' 'Vector3d' 'Vector3d' 'Vector3d' 'double' '1.0' 'double' '1.0' 'index' '0' 'index' '0' 'index' '0' 'size.grid' '0' 'size.grid' '0' 'size.grid' '0' 'type' 'identifier' 'addDouble' 'type' 'int' 'type' 'double' 'type' 'double' 'type' 'double' 'identifierThis' 'operator' 'int' 'assignVector3d' 'assignVector3d' 'for' 'assignVector3d' 'for' 'minusAssignVector3d' 'assignDouble' 'assignDouble' 'assignInt' 'assignInt' 'assignInt' 'newGrid' 'type' 'identifier' 'type' 'addLow' 'type' 'addLow' 'type' 'addLow' 'and' 'compareInt' 'assignGrid' 'type' 'identifier' 'type' 'identifier' 'type' 'identifier' 'type' 'vertex' 'type' 'vertex' 'type' 'vertex' 'type' 'minusVector3d' 'type' 'minusVector3d' 'type' 'call:length' 'type' 'call:length' 'var:dy1' 'var:dy2' 'var:U' 'var:y1' 'var:V' 'var:y2' 'compareDouble' 'compareDouble' 'var:dy1' 'var:dy2' 'scaleVector3d' 'scaleVector3d' 'var:U' 'forDouble' 'type' 'int' 'type' 'dot' 'type' 'int' 'identifier' 'operator' 'dotCount' 'identifier' 'int' 'call:triangle' 'Vector3d' 'v1' 'addDouble' 'multiplyDouble' 'index' '0' 'double' '0.0' 'double' '0.0' 'double' '0.0' 'size' 'gt' '0' 'identifierThis' 'vertex:0' 'identifierThis' 'vertex:0' 'var:i' 'compareInt' 'increment' 'glue' 'identifierThis' 'averageVector3d' 'var:i' 'compareInt' 'increment' 'glue' 'identifierThis' 'identifierThis' 'identifierThis' 'divideDouble' 'identifierThis' 'identifierThis' 'identifierThis' 'ceil' 'identifierThis' 'ceil' 'identifierThis' 'ceil' 'assignInt' 'assignInt' 'assignInt' 'identifierThis' 'identifierThis' 'identifierThis' 'Vector3d' 'v1' 'const' 'index' 'floor' 'identifierThis' 'const' 'index' 'floor' 'identifierThis' 'const' 'index' 'floor' 'identifierThis' 'and' 'compareLow' 'identifier' 'operator' 'identifierThis' 'identifier' 'identifier' 'identifier' 'index' 'a' 'index' 'b' 'index' 'c' 'const' 'Vector3d' 'positional' 'const' 'Vector3d' 'positional' 'const' 'Vector3d' 'positional' 'Vector3d' 'identifier' 'identifier' 'Vector3d' 'identifier' 'identifier' 'const' 'double' 'identifier' 'const' 'double' 'identifier' 'type' 'double' 'type' 'double' 'type' 'type' 'double' 'type' 'type' 'double' 'identifier' 'operator' 'double' 'identifier' 'operator' 'double' 'type' 'min' 'type' 'min' 'identifier' 'identifier' 'identifier' 'identifier' 'type' 'identifierVector3d' 'var:y1' 'compareDouble' 'addAssignDouble' 'glue' 'index' '0' 'const' 'index' 'triangles' 'size' 'index' '0' 'i' 'lt' 'i' '3' 'triangle' 'multiplyDouble' 'multiplyDouble' 'dot' 'dot' 'min' 'max' 'type' 'int' 'identifier' 'operator' 'identifierThis' 'identifier' 'var:x' 'var:y' 'var:z' 'if' 'if' 'if' 'if' 'if' 'if' 'mid' 'identifierThis' 'identifierThis' 'type' 'int' 'identifier' 'operator' 'identifierThis' 'identifier' 'minusAssignVertex' 'max' 'mid' 'c' 'call:length' 'double' 't' 'c' 'xr' 'minusDouble' 'yr' 'minusDouble' 'zr' 'minusDouble' 'identifierThis' 'addInt' 'identifierThis' 'addInt' 'identifierThis' 'addInt' 'xl' 'yl' 'zl' 'addDouble' 'xr' 'addDouble' 'yr' 'addDouble' 'zr' 'and' 'compareInt' 'identifier' 'operator' 'int' 'z' 'lt' 'zl' 'x' 'y' 'z' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'identifier' 'B' 'A' 'C' 'A' 'u' 'v' 'double' '0.0' 'double' '0.0' 'Vector3d' 'double' '0.0' 'Vector3d' 'double' '0.0' 'IIuII' 'gt' '0.0' 'IIvII' 'gt' '0.0' 'const' 'double' 'double' 'divideDouble' 'const' 'double' 'double' 'divideDouble' 'u' 'dy1' 'v' 'dy2' 'Vector3d' 'A' 'type' 'double' 'identifier' 'operator' 'double' 'identifier' 'identifier' 'var:V' 'forDouble' 'addAssignVector3d' 'identifier' 'dot' 'dot' 'dot' 'dot' 'v1' 'z' 'v1' 'z' 'index' '1' 'i' 'lt' 'size' 'i' 'positional' 'dotVertex' 'positional' 'dotVertex' 'positional' 'dotVertex' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'compareDouble' 'glue' 'min' 'max' 'index' '0' 'i' 'lt' 'size' 'i' 'identifier' 'identifierThis' 'identifierThis' '25.0' 'divideDouble' 'double' 'divideDouble' 'double' 'divideDouble' 'double' 'xl' 'multiplyInt' 'int' 'yl' 'multiplyInt' 'int' 'zl' 'multiplyInt' 'int' 'divideDouble' 'double' 'divideDouble' 'double' 'divideDouble' 'double' 'and' 'compareLow' 'identifier' 'operator' 'identifierThis' 'z' 'ge' '0' '1' 'a' '2' 'b' '3' 'c' '1.0' 'identifierThis' 'identifier' '1.0' 'identifierThis' 'identifier' 'double' '0.0' 'y1' 'le' '1.0' 'y1' 'dy1' 'type' 'identifierVector3d' 'var:y2' 'compareDouble' 'addAssignDouble' 'glue' 'identifier' 'identifier' 'i' 'v1' 'x' 'v1' 'x' 'v1' 'y' 'v1' 'y' 'type' 'type' 'identifier' 'x' 'type' 'type' 'identifier' 'y' 'type' 'type' 'identifier' 'z' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'identifier' 'operator' 'dot' 'assignDouble' 'i' 'mid' 'max' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'int' 'identifierThis' '1' 'int' 'identifierThis' '1' 'int' 'identifierThis' '1' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'dot' 'identifierThis' '0.5' 'compareLow' 'compareInt' 'identifier' 'operator' 'int' 'y' 'lt' 'yl' 't' 'IIuII' 't' 'IIvII' 'Vector3d' 'U' 'type' 'double' 'addDouble' 'operator' 'double' 'identifier' 'identifier' 'call:cube' 'addAssignVector3d' 'U' 'u' 'double' 'const' 'double' 'i' 'double' 'const' 'double' 'i' 'double' 'const' 'double' 'i' 'x' 'lt' 'min' 'x' 'dot' 'identifier' 'y' 'lt' 'min' 'y' 'dot' 'identifier' 'z' 'lt' 'min' 'z' 'dot' 'identifier' 'x' 'gt' 'max' 'x' 'dot' 'identifier' 'y' 'gt' 'max' 'y' 'dot' 'identifier' 'z' 'gt' 'max' 'z' 'dot' 'identifier' 'max' 'x' 'c' 'max' 'y' 'c' 'max' 'z' 'c' '2' 'xr' '2' 'yr' '2' 'zr' 'v1' 'x' 'c' 'v1' 'y' 'c' 'v1' 'z' 'c' 'identifier' 'operator' 'int' 'identifier' 'operator' 'identifierThis' 'y' 'ge' '0' 'double' '0.0' 'identifier' 'identifier' 'le' '1.0' 'y2' 'dy2' 'identifier' 'identifier' 'identifier' 'min' 'x' 'x' 'min' 'y' 'y' 'min' 'z' 'z' 'max' 'x' 'x' 'max' 'y' 'y' 'max' 'z' 'z' 'x' 'ge' '0' 'x' 'lt' 'xl' 'y1' 'y2' 'V' 'V' 'v')
+	local -ar parent=(0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 3 3 3 3 4 4 4 4 5 5 5 5 6 6 6 6 7 7 8 9 9 10 11 12 13 14 15 15 16 16 17 17 18 18 19 19 20 20 21 21 22 22 23 23 24 26 27 29 29 29 29 30 30 31 32 33 33 33 34 34 35 36 36 36 37 37 37 37 37 37 37 37 38 38 39 41 41 42 42 42 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 71 71 72 74 74 75 75 76 76 77 77 78 78 78 79 79 79 79 79 79 79 79 79 79 79 79 81 81 82 82 83 83 84 84 85 85 86 88 88 89 89 90 90 91 91 92 92 93 93 94 94 95 95 96 96 97 97 98 98 98 98 98 98 99 99 100 100 100 100 100 100 102 102 103 103 104 104 105 105 105 106 106 107 134 135 136 136 137 138 139 140 141 142 143 144 145 146 147 148 148 149 149 150 150 150 150 151 151 152 152 152 152 153 153 154 154 155 155 156 156 157 157 158 158 159 159 159 159 159 159 160 161 162 162 163 163 164 164 165 165 166 166 167 167 168 168 169 169 169 170 170 170 171 172 173 174 175 176 177 177 178 179 179 180 181 181 182 183 184 184 185 186 186 187 187 188 189 189 190 191 191 192 192 193 194 194 195 196 196 197 197 197 198 198 198 199 199 200 200 201 201 202 202 203 203 204 204 204 204 205 206 207 207 208 208 209 210 211 212 214 215 216 219 219 220 220 232 234 236 236 237 237 237 238 239 239 239 239 239 239 239 239 239 240 241 241 242 242 243 243 243 244 245 246 247 248 249 249 250 251 252 253 254 255 256 257 258 258 259 259 260 260 261 262 263 268 269 272 273 276 277 278 278 279 279 279 280 281 282 283 284 285 294 294 297 297 300 300 302 303 305 306 309 312 313 314 315 316 317 318 319 320 321 322 323 324 325 326 327 328 329 329 330 330 331 331 332 332 333 334 335 336 337 338 339 339 340 340 340 341 341 342 342 342 355 356 356 357 357 358 358 359 359 362 363 364 365 366 367 368 368 369 369 370 370 371 371 372 372 373 373 374 374 375 375 376 376 378 379 380 381 382 383 384 385 386 386 390 391 395 395 397 397 399 399 400 401 401 402 403 403 404 405 405 409 409 411 411 413 413 415 415 416 416 416 417 418 419 426 427 428 429 430 431 456 457 457 460 461 461 468 469 470 471 472 473 474 475 475 476 476 476 476 477 477 478 479 479 480 480 481 481 482 482 493 493 494 494 495 495 496 496 497 497 498 498 499 499 499 500 501 501 501 502 503 503 503 504 505 505 505 506 507 507 507 508 509 509 509 510 519 520 521 523 523 524 525 525 526 527 527 528 530 530 531 533 533 534 536 536 537 538 538 539 540 540 541 542 542 543 544 544 545 545 545 546 547 548 559 560 562 563 571 572 573 573 574 574 574 575 575 576 576 577 578 588 589 589 590 592 593 593 594 596 597 597 598 600 601 602 602 603 603 604 605 606 606 607 607 608 609 610 610 611 611 612 613 614 614 615 615 616 617 618 618 619 619 620 621 622 622 623 623 627 627 628 630 630 631 633 633 634 636 637 639 640 642 643 645 645 646 648 648 649 651 651 652 654 654 654 655 655 655 656 657 658 668 669 670 670 671 672 673 674 675 676 676 695 695 696 701 701 702 707 707 708 713 713 714 719 719 720 725 725 726 751 752 753 754 755 756 762 763 768 769 770)
 
 	local -Ar od=(' ' '\040' '!' '\041' '"' '\042' '#' '\043' '$' '\044' '%' '\045' '&' '\046' \' '\047' '(' '\050' ')' '\051' '*' '\052' '+' '\053' ',' '\054' '-' '\055' '.' '\056' '/' '\057' '0' '\060' '1' '\061' '2' '\062' '3' '\063' '4' '\064' '5' '\065' '6' '\066' '7' '\067' '8' '\070' '9' '\071' ':' '\072' ';' '\073' '<' '\074' '=' '\075' '>' '\076' '?' '\077' '@' '\100' 'A' '\101' 'B' '\102' 'C' '\103' 'D' '\104' 'E' '\105' 'F' '\106' 'G' '\107' 'H' '\110' 'I' '\111' 'J' '\112' 'K' '\113' 'L' '\114' 'M' '\115' 'N' '\116' 'O' '\117' 'P' '\120' 'Q' '\121' 'R' '\122' 'S' '\123' 'T' '\124' 'U' '\125' 'V' '\126' 'W' '\127' 'X' '\130' 'Y' '\131' 'Z' '\132' '[' '\133' '\' '\134' ']' '\135' '^' '\136' '_' '\137' '`' '\140' 'a' '\141' 'b' '\142' 'c' '\143' 'd' '\144' 'e' '\145' 'f' '\146' 'g' '\147' 'h' '\150' 'i' '\151' 'j' '\152' 'k' '\153' 'l' '\154' 'm' '\155' 'n' '\156' 'o' '\157' 'p' '\160' 'q' '\161' 'r' '\162' 's' '\163' 't' '\164' 'u' '\165' 'v' '\166' 'w' '\167' 'x' '\170' 'y' '\171' 'z' '\172' '{' '\173' '|' '\174' '}' '\175' '~' '\176')
 
-	if [ $target -gt 0 ]
+	if [ $# -eq 1 ]
 	then
-		build $target
+		build $(target "$1") "$1"
 	else
-		for built in $(emit)
-		do
-			printf $built
-		done
+		build 0
 	fi
 }
 
@@ -493,9 +555,9 @@ then
 	then
 		walk $(awk '{ match($0, /^\t+/); gsub(/^\t+/, ""); print (NR - 1) ":" (RLENGTH > 0 ? RLENGTH : 0) ":0:" $0 }' "$1")
 	else
-		main $(target "$1")
+		main "$1"
 	fi
 elif [ $# -eq 0 ]
 then
-	main 0
+	main
 fi

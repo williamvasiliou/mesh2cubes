@@ -175,15 +175,14 @@ emit_compareLow () {
 }
 
 emit_constructor () {
-	local -ar children=${@:1}
+	local -ar children=(${@:1})
 	local -i child=0
 	local -i size=0
 	local -a Result
-	local -a parameters
 	for child in ${children[@]}
 	do
-		case ${T[$child]} in
-			var:size.elements*)
+		case ${T[$child]:4} in
+			count)
 				;;
 			*)
 				for built in $(emit $child '1'${context:1})
@@ -204,48 +203,59 @@ emit_constructor () {
 
 		for child in ${children[@]}
 		do
-			parameters=($(cut ':' ${T[$child]}))
-			parameters=($(cut ',' ${parameters[1]}))
-
-			if [ ${#parameters[@]} -gt 2 ]
-			then
-				case ${parameters[0]} in
-					size.elements)
-						continue
-						;;
-					index|size*)
-						parameters[0]='int'
-						;;
-				esac
-
-				for built in $(emit $child '0'${context:1})
-				do
-					Result[$size]='\tthis.'${built:${#parameters[0]}+4}
+			case ${T[$child]:4} in
+				count|grid)
+					continue
+					;;
+				vertices)
+					Result[$size]='\tthis.vertices\040=\040new\040ArrayList<Double>();\n'
 					size+=1
-				done
-			else
-				case ${parameters[1]} in
-					vertices)
-						Result[$size]='\tthis.vertices\040=\040new\040ArrayList<Double>();\n'
-						size+=1
-						;;
-					elements)
-						Result[$size]='\tthis.elements\040=\040new\040ArrayList<Integer>();\n'
-						size+=1
-						;;
-					grid)
-						;;
-					*)
-						Result[$size]='\tthis.'${parameters[1]}'\040=\040new\040double[]\040{0.0,\0400.0,\0400.0};\n'
-						size+=1
-						;;
-				esac
-			fi
+
+					continue
+					;;
+				elements)
+					Result[$size]='\tthis.elements\040=\040new\040ArrayList<Integer>();\n'
+					size+=1
+
+					continue
+					;;
+				min|max|mid)
+					Result[$size]='\tthis.'${T[$child]:4}'\040=\040new\040double[]\040{0.0,\0400.0,\0400.0};\n'
+					size+=1
+
+					continue
+					;;
+			esac
+
+			for built in $(emit $child '0'${context:1})
+			do
+				Result[$size]='\tthis.'${built#[^\\]*\\040}
+				size+=1
+			done
 		done
 
 		Result[$size]='}\n'
 		size+=1
 	fi
+
+	echo ${Result[@]}
+}
+
+emit_declarations () {
+	echo
+}
+
+emit_declarationsBody () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		for built in $(emit $child $context)
+		do
+			Result[${#Result[@]}]=$built
+		done
+	done
 
 	echo ${Result[@]}
 }
@@ -259,9 +269,6 @@ emit_dot() {
 	local -r parameter=${T[${2:?}]}
 
 	case $name in
-		triangles)
-			echo 'this.elements.'$parameter'()'
-			;;
 		*)
 			case $parameter in
 				x)
@@ -276,6 +283,10 @@ emit_dot() {
 			esac
 			;;
 	esac
+}
+
+emit_dotCount () {
+	echo 'this.elements.size()'
 }
 
 emit_dotVertex () {
@@ -328,49 +339,11 @@ emit_forDouble () {
 
 emit_function () {
 	local -r name=${1:?}
-	local -ar parameters=(${@:2})
-	local -i size=${#parameters[@]}
 	local -r context='0'${context:1}
 
-	local -a Result=('public\040')
-	case $name in
-		length)
-			Result[0]=${Result[0]}'double'
-			;;
-		*)
-			Result[0]=${Result[0]}'void'
-			;;
-	esac
+	local -a Result=('public\040'$(rvalue ${2:?})'\040'$(octal $name)'\040'$(rvalue ${3:?})'\040{\n')
 
-	Result[0]=${Result[0]}'\040'$(octal $name)'\040('
-	if [ $size -gt 0 ]
-	then
-		size=0
-		for parameter in ${parameters[@]}
-		do
-			if [ $size -gt 0 ]
-			then
-				if [ $(($size % 2)) -eq 0 ]
-				then
-					Result[0]=${Result[0]}','
-				fi
-
-				Result[0]=${Result[0]}'\040'
-			fi
-
-			if [ $(($size % 2)) -eq 0 ]
-			then
-				parameter=${parameter/Vector3d/'double[]'}
-				parameter=${parameter/index/int}
-			fi
-
-			Result[0]=${Result[0]}$parameter
-			size+=1
-		done
-	fi
-	Result[0]=${Result[0]}')\040{\n'
-
-	for built in $(emit_glue ${children[@]})
+	for built in $(emit_glue ${@:4})
 	do
 		Result[${#Result[@]}]=$built
 	done
@@ -534,6 +507,22 @@ emit_operator () {
 	esac
 }
 
+emit_parameter () {
+	echo $(rvalue ${1:?})'\040'$(rvalue ${2:?})
+}
+
+emit_parameters () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		Result[${#Result[@]}]=$(rvalue $child)
+	done
+
+	echo '('$(join ',\040' ${Result[@]})')'
+}
+
 emit_positional () {
 	echo $(rvalue ${2:?})
 }
@@ -572,18 +561,46 @@ emit_type() {
 	for child in ${children[@]}
 	do
 		Result[${#Result[@]}]=${T[$child]}
+
+		case ${Result[-1]} in
+			*'[]')
+				Result[-1]=${Result[-1]%'[]'}
+
+				case ${Result[-1]} in
+					index)
+						Result[-1]='ArrayList<Integer>'
+						;;
+					*)
+						Result[-1]='ArrayList<'${Result[-1]@u}'>'
+						;;
+				esac
+
+				Result[-1]='final\040'${Result[-1]}
+				;;
+			Vector3d)
+				Result[-1]='double[]'
+				;;
+			Grid)
+				Result[-1]='boolean[][][]'
+				;;
+			const)
+				Result[-1]='final'
+				;;
+			index|size*)
+				Result[-1]='int'
+				;;
+		esac
 	done
 
-	echo $(join '\040' ${Result[@]})
+	echo ${Result[@]}
 }
 
 emit_var() {
-	local -ir cut=${1:?}
+	local -r name=${1:?}
 	local -ar parameters=(${@:2})
 	local -ir size=${#parameters[@]}
 
 	local -a attributes
-	local name=
 	local value=
 	local Result=
 
@@ -592,71 +609,11 @@ emit_var() {
 		attributes[0]='public'
 	fi
 
-	if [ $cut -eq 1 ]
+	attributes=(${attributes[@]} $(rvalue ${parameters[0]}))
+
+	if [ $size -gt 1 ]
 	then
-		case ${parameters[0]} in
-			*'[]')
-				attributes[${#attributes[@]}]=${parameters[0]%'[]'}
-
-				case ${attributes[-1]} in
-					index)
-						attributes[${#attributes[@]}]='ArrayList<Integer>'
-						;;
-					*)
-						attributes[${#attributes[@]}]='ArrayList<'${attributes[-1]@u}'>'
-						;;
-				esac
-
-				attributes[-2]='final'
-				;;
-			Vector3d)
-				attributes[${#attributes[@]}]='double[]'
-				;;
-			Grid)
-				attributes[${#attributes[@]}]='boolean[][][]'
-				;;
-			index|size*)
-				attributes[${#attributes[@]}]='int'
-				;;
-			*)
-				attributes[${#attributes[@]}]=${parameters[0]}
-				;;
-		esac
-
-		name=$(octal ${parameters[1]})
-
-		if [ $size -gt 2 ]
-		then
-			value=$(octal ${parameters[2]})
-		fi
-	else
-		name=$(rvalue ${parameters[0]})
-
-		case $name in
-			*const*)
-				attributes[${#attributes[@]}]='final'
-				name=${name/'const\040'/}
-				;;
-		esac
-
-		case $name in
-			*Vector3d*)
-				attributes[${#attributes[@]}]='double[]'
-				;;
-			*index*|*size*)
-				attributes[${#attributes[@]}]='int'
-				;;
-			*)
-				attributes[${#attributes[@]}]=$name
-				;;
-		esac
-
-		name=$(lvalue ${parameters[1]})
-
-		if [ $size -gt 2 ]
-		then
-			value=$(rvalue ${parameters[2]})
-		fi
+		value=$(rvalue ${parameters[1]})
 	fi
 
 	if [[ -n $name && -n $value ]]
@@ -704,5 +661,9 @@ emit_vertex () {
 	echo 'new\040double[]\040{'$(join ',\040' ${Result[@]})'}'
 }
 
+build_files () {
+	build_file "${@:1:2}" 'java'
+	javac "${1:?}/${2:?}.java"
+}
+
 . ./build.sh java
-javac ./java/mesh2cubes.java

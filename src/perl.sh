@@ -196,8 +196,8 @@ emit_constructor () {
 	local -a Result
 	for child in ${children[@]}
 	do
-		case ${T[$child]} in
-			var:size.elements*|var:size.grid*)
+		case ${T[$child]:4} in
+			count|xl|yl|zl)
 				;;
 			*)
 				for built in $(emit $child '1'${context:1})
@@ -206,6 +206,25 @@ emit_constructor () {
 				done
 				;;
 		esac
+	done
+
+	echo ${Result[@]}
+}
+
+emit_declarations () {
+	echo
+}
+
+emit_declarationsBody () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		for built in $(emit $child $context)
+		do
+			Result[${#Result[@]}]=$built
+		done
 	done
 
 	echo ${Result[@]}
@@ -220,13 +239,6 @@ emit_dot() {
 	local -r parameter=${T[${2:?}]}
 
 	case $name in
-		triangles)
-			case $parameter in
-				size)
-					echo '@elements'
-					;;
-			esac
-			;;
 		v1)
 			case $parameter in
 				x)
@@ -254,6 +266,10 @@ emit_dot() {
 			esac
 			;;
 	esac
+}
+
+emit_dotCount () {
+	echo '@elements'
 }
 
 emit_dotVertex () {
@@ -317,7 +333,7 @@ emit_function () {
 		Result[4]='\t$c\040*=\0403;\n\n'
 	fi
 
-	for built in $(emit_glue ${children[@]})
+	for built in $(emit_glue ${@:4})
 	do
 		Result[${#Result[@]}]=$built
 	done
@@ -478,6 +494,14 @@ emit_operator () {
 	esac
 }
 
+emit_parameter () {
+	echo
+}
+
+emit_parameters () {
+	echo
+}
+
 emit_positional () {
 	echo $(rvalue ${2:?})
 }
@@ -522,13 +546,12 @@ emit_type() {
 }
 
 emit_var() {
-	local -ir cut=${1:?}
+	local -r name=${1:?}
 	local -ar parameters=(${@:2})
 	local -ir size=${#parameters[@]}
 
 	local -a attributes
-	local name=
-	local value=
+	local value=$(rvalue ${2:?})
 	local Result=
 
 	if [ ${context:0:1} -eq 1 ]
@@ -538,70 +561,39 @@ emit_var() {
 		attributes[0]='my'
 	fi
 
-	if [ $cut -eq 1 ]
+	case $value in
+		*'[]')
+			attributes[1]='@'
+
+			if [ $size -lt 2 ]
+			then
+				value='()'
+			fi
+			;;
+		*Vector3d*)
+			attributes[1]='@'
+
+			if [ $size -lt 2 ]
+			then
+				value='(0.0,\0400.0,\0400.0)'
+			fi
+			;;
+		Grid)
+			attributes[1]='\045'
+
+			if [ $size -lt 2 ]
+			then
+				value='()'
+			fi
+			;;
+		*)
+			attributes[1]='$'
+			;;
+	esac
+
+	if [ $size -gt 1 ]
 	then
-		case ${parameters[0]} in
-			*'[]')
-				attributes[1]='@'
-
-				if [ $size -lt 3 ]
-				then
-					value='()'
-				fi
-				;;
-			Vector3d)
-				attributes[1]='@'
-
-				if [ $size -lt 3 ]
-				then
-					value='(0.0,\0400.0,\0400.0)'
-				fi
-				;;
-			Grid)
-				attributes[1]='\045'
-
-				if [ $size -lt 3 ]
-				then
-					value='()'
-				fi
-				;;
-			*)
-				attributes[1]='$'
-				;;
-		esac
-
-		name=$(octal ${parameters[1]})
-
-		if [ $size -gt 2 ]
-		then
-			value=$(octal ${parameters[2]})
-		fi
-	else
-		name=$(rvalue ${parameters[0]})
-
-		case $name in
-			*'[]')
-				attributes[1]='@'
-				;;
-			*Vector3d*)
-				attributes[1]='@'
-
-				if [ $size -lt 3 ]
-				then
-					value='(0.0,\0400.0,\0400.0)'
-				fi
-				;;
-			*)
-				attributes[1]='$'
-				;;
-		esac
-
-		name=$(lvalue ${parameters[1]})
-
-		if [ $size -gt 2 ]
-		then
-			value=$(rvalue ${parameters[2]})
-		fi
+		value=$(rvalue ${parameters[1]})
 	fi
 
 	if [[ -n $name && -n $value ]]
@@ -635,6 +627,10 @@ emit_vertex () {
 	fi
 
 	echo $Result
+}
+
+build_files () {
+	build_file "${@:1:2}" 'pm'
 }
 
 . ./build.sh perl

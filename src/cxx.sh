@@ -214,7 +214,7 @@ emit_compareLow () {
 }
 
 emit_constructor () {
-	local -ar children=${@:1}
+	local -ar children=(${@:1})
 	local -i child=0
 
 	local -a Result
@@ -237,56 +237,65 @@ emit_constructor () {
 
 		for child in ${children[@]}
 		do
-			parameters=($(cut ':' ${T[$child]}))
-			parameters=($(cut ',' ${parameters[1]}))
-
-			if [ ${#parameters[@]} -gt 2 ]
-			then
-				case ${parameters[0]} in
-					index*|size*)
-						parameters[0]='size_t'
-						;;
-				esac
-
-				for built in $(emit $child '0'${context:1})
-				do
-					Result[$size]='\t'${built:${#parameters[0]}+4:-3}')'
-					Result[$size]=${Result[$size]/'\040=\040'/'('}
-
-					case ${parameters[1]} in
-						zl)
-							Result[$size]=${Result[$size]}'\n'
-							;;
-						*)
-							Result[$size]=${Result[$size]}',\n'
-							;;
-					esac
-
+			case ${T[$child]:4} in
+				vertices|elements)
+					Result[$size]='\t'${T[$child]:4}'(),\n'
 					size+=1
-				done
-			else
-				case ${parameters[1]} in
-					vertices|elements)
-						Result[$size]='\t'${parameters[1]}'(),\n'
 
-						size+=1
-						;;
-					grid)
-						Result[$size]='\tgrid((uint8_t\040*)\040NULL),\n'
+					continue
+					;;
+				grid)
+					Result[$size]='\tgrid((uint8_t\040*)\040NULL),\n'
+					size+=1
 
-						size+=1
-						;;
-					*)
-						Result[$size]='\t'${parameters[1]}'{0.0,\0400.0,\0400.0},\n'
-						size+=1
-						;;
-				esac
-			fi
+					continue
+					;;
+				min|max|mid)
+					Result[$size]='\t'${T[$child]:4}'{0.0,\0400.0,\0400.0},\n'
+					size+=1
+
+					continue
+					;;
+			esac
+
+			for built in $(emit $child '0'${context:1})
+			do
+				Result[$size]='\t'${built#[^\\]*\\040}
+				Result[$size]=${Result[$size]/\\040=\\040/(}
+
+				if [ ${T[$child]:4} = 'zl' ]
+				then
+					Result[$size]=${Result[$size]/;\\n/)\\n}
+				else
+					Result[$size]=${Result[$size]/;\\n/),\\n}
+				fi
+
+				size+=1
+			done
 		done
 
 		Result[$size]='{}\n'
 		size+=1
 	fi
+
+	echo ${Result[@]}
+}
+
+emit_declarations () {
+	echo
+}
+
+emit_declarationsBody () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		for built in $(emit $child $context)
+		do
+			Result[${#Result[@]}]=$built
+		done
+	done
 
 	echo ${Result[@]}
 }
@@ -300,13 +309,6 @@ emit_dot() {
 	local -r parameter=${T[${2:?}]}
 
 	case $name in
-		triangles)
-			case $parameter in
-				size)
-					echo 'this->count'
-					;;
-			esac
-			;;
 		v1)
 			case $parameter in
 				x)
@@ -334,6 +336,10 @@ emit_dot() {
 			esac
 			;;
 	esac
+}
+
+emit_dotCount () {
+	echo 'this->count'
 }
 
 emit_dotVertex () {
@@ -386,55 +392,11 @@ emit_forDouble () {
 
 emit_function () {
 	local -r name=${1:?}
-	local -ar parameters=(${@:2})
-	local -i size=${#parameters[@]}
 	local -r context='0'${context:1}
 
-	local -a Result
-	case $name in
-		length)
-			Result[0]='static\040inline\040double'
-			;;
-		*)
-			Result[0]='void'
-			;;
-	esac
+	local -a Result=($(rvalue ${2:?})'\040'$(octal $name)$(rvalue ${3:?})'\040{\n')
 
-	Result[0]=${Result[0]}'\040'$(octal $name)'('
-
-	if [ $size -gt 0 ]
-	then
-		size=0
-		for parameter in ${parameters[@]}
-		do
-			if [ $size -gt 0 ]
-			then
-				if [ $(($size % 2)) -eq 0 ]
-				then
-					Result[0]=${Result[0]}','
-				fi
-
-				Result[0]=${Result[0]}'\040'
-			fi
-
-			if [ $(($size % 2)) -eq 0 ]
-			then
-				parameter=${parameter/Vector3d/double}
-				parameter=${parameter/index/size_t}
-			fi
-
-			Result[0]=${Result[0]}$parameter
-			size+=1
-
-			if [[ $size -gt 1 && $(($size % 2)) -eq 0 && ${parameters[$(($size - 2))]} = 'Vector3d' ]]
-			then
-				Result[0]=${Result[0]}'[3]'
-			fi
-		done
-	fi
-	Result[0]=${Result[0]}')\040{\n'
-
-	for built in $(emit_glue ${children[@]})
+	for built in $(emit_glue ${@:4})
 	do
 		Result[${#Result[@]}]=$built
 	done
@@ -602,6 +564,28 @@ emit_operator () {
 	esac
 }
 
+emit_parameter () {
+	echo $(rvalue ${1:?})'\040'$(rvalue ${2:?})
+}
+
+emit_parameters () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		Result[${#Result[@]}]=$(rvalue $child)
+
+		case ${Result[-1]} in
+			Vector3d\\040v1)
+				Result[-1]=${Result[-1]/Vector3d/double}'[3]'
+				;;
+		esac
+	done
+
+	echo '('$(join ',\040' ${Result[@]})')'
+}
+
 emit_positional () {
 	echo $(rvalue ${2:?})
 }
@@ -640,149 +624,87 @@ emit_type() {
 	for child in ${children[@]}
 	do
 		Result[${#Result[@]}]=${T[$child]}
+
+		case ${Result[-1]} in
+			*'[]')
+				Result[-1]=${Result[-1]%'[]'}
+
+				case ${Result[-1]} in
+					index)
+						Result[-1]='std::vector<size_t>'
+						;;
+					*)
+						Result[-1]='std::vector<'${Result[-1]}'>'
+						;;
+				esac
+				;;
+			Grid)
+				Result[-1]='uint8_t'
+				;;
+			index|size*)
+				Result[-1]='size_t'
+				;;
+			static)
+				Result[-1]='static\040inline'
+				;;
+		esac
 	done
 
-	echo $(join '\040' ${Result[@]})
+	echo ${Result[@]}
 }
 
 emit_var() {
-	local -ir cut=${1:?}
+	local name=${1:?}
 	local -ar parameters=(${@:2})
 	local -ir size=${#parameters[@]}
 
-	local -a attributes
-	local name=
+	local -a attributes=($(rvalue ${parameters[0]}))
 	local value=
 	local -a Result
 
-	if [ $cut -eq 1 ]
-	then
-		name=$(octal ${parameters[1]})
-
-		case ${parameters[0]} in
-			*'[]')
-				attributes[0]=${parameters[0]%'[]'}
-
-				case ${attributes[0]} in
-					index)
-						attributes[0]='std::vector<size_t>'
-						;;
-					*)
-						attributes[0]='std::vector<'${attributes[0]}'>'
-						;;
-				esac
-				;;
-			Vector3d)
-				attributes[0]='double'
-				name+='[3]'
-				;;
-			Grid)
-				attributes[0]='uint8_t'
-				name='*'$name
-				;;
-			index|size*)
-				attributes[0]='size_t'
-				;;
-			*)
-				attributes[0]=${parameters[0]}
-				;;
-		esac
-
-		if [ $size -gt 2 ]
-		then
-			value=$(octal ${parameters[2]})
-		fi
-
-		if [[ -n $name && -n $value ]]
-		then
-			if [ ${context:0:1} -eq 0 ]
+	case ${attributes[@]} in
+		*Vector3d*)
+			if [ $size -gt 1 ]
 			then
-				Result=$name'\040=\040'$value
+				Result=($(cut ':' $(rvalue ${parameters[1]})))
 			else
-				Result=$name
+				Result=('0.0' '0.0' '0.0')
 			fi
-		else
-			Result[0]=$name
-		fi
 
-		if [ ${#attributes[@]} -gt 0 ]
-		then
-			Result[0]=$(join '\040' ${attributes[@]})'\040'${Result[0]}
-		fi
+			attributes=${attributes[@]/Vector3d/double}
+			name+='[3]'
+			value='{'${Result[0]}',\040'${Result[1]}',\040'${Result[2]}'}'
+			;;
+		*uint8_t*)
+			name='*'$name
+			;;
+		*)
+			if [ $size -gt 1 ]
+			then
+				value=$(rvalue ${parameters[1]})
+			fi
+			;;
+	esac
 
-		if [ ${context:1:1} -eq 1 ]
-		then
-			Result[0]=${Result[0]}';\n'
-		fi
-	else
-		name=$(rvalue ${parameters[0]})
-
-		case $name in
-			*Vector3d*)
-				if [ $size -gt 2 ]
-				then
-					attributes=($(cut ':' $(rvalue ${parameters[2]})))
-				else
-					attributes=('0.0' '0.0' '0.0')
-				fi
-
-				if [ ${context:1:1} -eq 1 ]
-				then
-					Result[0]='double\040'$(lvalue ${parameters[1]})'[3]\040=\040{'${attributes[0]}',\040'${attributes[1]}',\040'${attributes[2]}'};\n'
-
-					case $name in
-						*const*)
-							Result[0]='const\040'${Result[0]}
-							;;
-					esac
-				fi
-				;;
-			*)
-				case $name in
-					*const*)
-						attributes[${#attributes[@]}]='const'
-						name=${name/'const\040'/}
-						;;
-				esac
-
-				case $name in
-					*index*|*size*)
-						attributes[${#attributes[@]}]='size_t'
-						;;
-					*)
-						attributes[${#attributes[@]}]=$name
-						;;
-				esac
-
-				name=$(lvalue ${parameters[1]})
-
-				if [ $size -gt 2 ]
-				then
-					value=$(rvalue ${parameters[2]})
-				fi
-
-				if [[ -n $name && -n $value ]]
-				then
-					Result[0]=$name'\040=\040'$value
-				elif [ ${context:0:1} -eq 0 ]
-				then
-					Result[0]=$name
-				fi
-
-				if [ ${#attributes[@]} -gt 0 ]
-				then
-					Result[0]=$(join '\040' ${attributes[@]})'\040'${Result[0]}
-				fi
-
-				if [ ${context:1:1} -eq 1 ]
-				then
-					Result[0]=${Result[0]}';\n'
-				fi
-				;;
-		esac
+	if [ ${context:0:1} -eq 1 ]
+	then
+		Result[0]=$name
+	elif [[ -n $name && -n $value ]]
+	then
+		Result[0]=$name'\040=\040'$value
 	fi
 
-	echo ${Result[@]}
+	if [ ${#attributes[@]} -gt 0 ]
+	then
+		Result[0]=$(join '\040' ${attributes[@]})'\040'${Result[0]}
+	fi
+
+	if [ ${context:1:1} -eq 1 ]
+	then
+		Result[0]=${Result[0]}';\n'
+	fi
+
+	echo ${Result[0]}
 }
 
 emit_vertex () {
@@ -803,6 +725,10 @@ emit_vertex () {
 	fi
 
 	echo $(join ':' ${Result[@]})
+}
+
+build_files () {
+	build_file "${@:1:2}" 'hpp'
 }
 
 . ./build.sh cxx
