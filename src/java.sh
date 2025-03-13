@@ -586,7 +586,7 @@ emit_type() {
 			const)
 				Result[-1]='final'
 				;;
-			index|size*)
+			index*|size*)
 				Result[-1]='int'
 				;;
 		esac

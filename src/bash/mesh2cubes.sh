@@ -4,9 +4,9 @@ declare -i size=0
 declare -a vertices
 declare -a elements
 declare -A grid
-declare -a min=(0 0 0)
-declare -a max=(0 0 0)
-declare -a mid=(0 0 0)
+declare -a min=('0.0' '0.0' '0.0')
+declare -a max=('0.0' '0.0' '0.0')
+declare -a mid=('0.0' '0.0' '0.0')
 declare c='1.0'
 declare t='1.0'
 declare -i xr=0

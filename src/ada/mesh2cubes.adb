@@ -1,3 +1,6 @@
+with Ada.Strings;
+with Ada.Strings.Fixed;
+
 package body mesh2cubes is
 	function length (v1: in Vector3d) return Double is
 	begin
@@ -66,11 +69,18 @@ package body mesh2cubes is
 	end translate;
 
 	procedure cube (v1: in Vector3d) is
-		x: constant Natural := Natural (Double'Floor (v1 (1) / c + 0.5) + Double (xr));
-		y: constant Natural := Natural (Double'Floor (v1 (2) / c + 0.5) + Double (yr));
-		z: constant Natural := Natural (Double'Floor (v1 (3) / c + 0.5) + Double (zr));
+		x: constant Integer := Integer (Double'Floor (v1 (1) / c + 0.5));
+		y: constant Integer := Integer (Double'Floor (v1 (2) / c + 0.5));
+		z: constant Integer := Integer (Double'Floor (v1 (3) / c + 0.5));
+
+		function image (i: in Integer) return String is
+			use Ada.Strings;
+			use Ada.Strings.Fixed;
+		begin
+			return Trim (i'Image, Left);
+		end image;
 	begin
-		grid.Insert (SU.To_Unbounded_String (x'Image & "," & y'Image & "," & z'Image));
+		grid.Include (SU.To_Unbounded_String (image (x) & "," & image (y) & "," & image (z)));
 	end cube;
 
 	procedure triangle (a: in Natural; b: in Natural; c: in Natural) is
@@ -79,8 +89,8 @@ package body mesh2cubes is
 		CC: constant Vector3d := (vertices.Element (3 * c + 1), vertices.Element (3 * c + 2), vertices.Element (3 * c + 3));
 		u: Vector3d := (BB (1) - AA (1), BB (2) - AA (2), BB (3) - AA (3));
 		v: Vector3d := (CC (1) - AA (1), CC (2) - AA (2), CC (3) - AA (3));
-		IIuII: Double := length (u);
-		IIvII: Double := length (v);
+		IIuII: constant Double := length (u);
+		IIvII: constant Double := length (v);
 		dy1: Double := 0.0;
 		dy2: Double := 0.0;
 		UU: Vector3d := (0.0, 0.0, 0.0);
@@ -128,8 +138,8 @@ package body mesh2cubes is
 	end triangle;
 
 	procedure triangles is
-		i: Count_Type := 0;
-		count: constant Count_Type := elements.Length;
+		i: Natural := 0;
+		count: constant Natural := Natural (elements.Length);
 	begin
 		i := 0;
 		while i < count loop

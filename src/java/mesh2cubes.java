@@ -35,7 +35,7 @@ public final class mesh2cubes {
 		this.zl = 0;
 	}
 
-	public double length (double[] v1) {
+	public static double length (double[] v1) {
 		return Math.sqrt(v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]);
 	}
 

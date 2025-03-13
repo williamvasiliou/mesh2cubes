@@ -191,7 +191,7 @@ emit_compareLow () {
 }
 
 emit_constructor () {
-	local -ar children=${@:1}
+	local -ar children=(${@:1})
 	local -i child=0
 	local -a Result
 	for child in ${children[@]}

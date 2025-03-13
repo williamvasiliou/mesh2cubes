@@ -12,16 +12,49 @@ emit_mesh2cubes () {
 	local -ir constructor=${children[1]:?}
 
 	local -a Result
-	Result[0]='package\040body\040mesh2cubes\040is\n'
-	local -i size=1
+	if [ ${#context} -eq 2 ]
+	then
+		Result[0]='with\040Ada.Strings;\n'
+		Result[1]='with\040Ada.Strings.Fixed;\n\n'
+
+		Result[2]='package\040body\040mesh2cubes\040is\n'
+	else
+		Result[0]='with\040Ada.Containers.Vectors;\n'
+		Result[1]='with\040Ada.Containers.Ordered_Sets;\n'
+		Result[2]='with\040Ada.Numerics.Generic_Elementary_Functions;\n'
+		Result[3]='with\040Ada.Strings.Unbounded;\n\n'
+
+		Result[4]='use\040Ada.Containers;\n\n'
+
+		Result[5]='package\040mesh2cubes\040is\n'
+		Result[6]='\ttype\040Double\040is\040digits\04017\040range\040-1.7976931348623157e+308\040..\0401.7976931348623157e+308;\n'
+		Result[7]='\tpackage\040Math\040is\040new\040Ada.Numerics.Generic_Elementary_Functions\040(Double);\n'
+		Result[8]='\tpackage\040Doubles\040is\040new\040Vectors\040(Positive,\040Double);\n'
+		Result[9]='\tpackage\040Indices\040is\040new\040Vectors\040(Positive,\040Natural);\n'
+		Result[10]='\tpackage\040SU\040renames\040Ada.Strings.Unbounded;\n'
+		Result[11]='\tuse\040type\040SU.Unbounded_String;\n'
+		Result[12]='\tpackage\040Grid3\040is\040new\040Ordered_Sets\040(SU.Unbounded_String);\n'
+		Result[13]='\ttype\040Vector3d\040is\040array\040(1\040..\0403)\040of\040Double;\n\n'
+	fi
+
+	local -i size=${#Result[@]}
 
 	for child in ${children[@]}
 	do
 		if [ $child -gt 0 ]
 		then
 			case ${T[$child]} in
+				constructor)
+					if [ ${#context} -eq 2 ]
+					then
+						continue
+					fi
+					;;
 				function:*)
-					Result[$(($size - 1))]+='\n'
+					if [ $size -gt 3 ]
+					then
+						Result[$(($size - 1))]+='\n'
+					fi
 					;;
 			esac
 
@@ -32,19 +65,12 @@ emit_mesh2cubes () {
 			done
 		fi
 	done
-
-	if [ $constructor -gt 0 ]
-	then
-		Result[$size]='begin\n'
-		size+=1
-
-		for built in $(emit $constructor '0'${context:1})
-		do
-			Result[$size]='\t'$built
-			size+=1
-		done
-	fi
 	Result[$size]='end\040mesh2cubes;\n'
+
+	if [ ${#context} -eq 3 ]
+	then
+		Result[$(($size - 1))]+='\n'
+	fi
 
 	echo ${Result[@]}
 }
@@ -94,7 +120,7 @@ emit_addInt () {
 }
 
 emit_addLow () {
-	echo $(rvalue ${1:?})'\040+\040'$(rvalue ${2:?})
+	echo $(rvalue ${1:?})
 }
 
 emit_and () {
@@ -106,7 +132,7 @@ emit_assignDouble () {
 }
 
 emit_assignGrid () {
-	echo 'grid\040('$(rvalue ${1:?})',\040'$(rvalue ${2:?})',\040'$(rvalue ${3:?})')\040:=\040True;\n'
+	echo 'grid.Include\040(SU.To_Unbounded_String\040(image\040('$(rvalue ${1:?})')\040&\040","\040&\040image\040('$(rvalue ${2:?})')\040&\040","\040&\040image\040('$(rvalue ${3:?})')));\n'
 }
 
 emit_assignInt () {
@@ -134,14 +160,21 @@ emit_call () {
 
 	if [ $size -eq 0 ]
 	then
-		Result[0]=$(octal $name)'()'
+		Result[0]=$(octal $name)
 	else
 		for child in ${children[@]}
 		do
 			Result[${#Result[@]}]=$(rvalue $child)
 		done
 
-		Result[0]=$(octal $name)'\040('$(join ',\040' ${Result[@]})')'
+		Result[0]='\040('$(join ',\040' ${Result[@]})')'
+	fi
+
+	if [ $name = 'sqrt' ]
+	then
+		Result[0]='Math.'$(octal ${name@u})${Result[0]}
+	else
+		Result[0]=$(octal $name)${Result[0]}
 	fi
 
 	if [ ${context:1:1} -eq 1 ]
@@ -153,7 +186,7 @@ emit_call () {
 }
 
 emit_ceil () {
-	echo 'Ceil('$(rvalue ${1:?})')'
+	echo 'Natural\040(Double'\''Ceiling\040('$(rvalue ${1:?})'))'
 }
 
 emit_compareDouble () {
@@ -184,36 +217,53 @@ emit_compareLow () {
 }
 
 emit_constructor () {
-	local -ar children=${@:1}
+	local -ar children=(${@:1})
 	local -i child=0
 	local -i size=0
 	local -a Result
-	local -a parameters
 	for child in ${children[@]}
 	do
-		parameters=($(cut ':' ${T[$child]}))
-		parameters=($(cut ',' ${parameters[1]}))
-
-		case ${parameters[1]} in
-			vertices|elements|grid)
-				if [ ${context:0:1} -eq 0 ]
-				then
-					continue
-				fi
-				;;
-		esac
-
-		case ${T[$child]} in
-			var:size.elements*)
+		case ${T[$child]:4} in
+			count|xl|yl|zl)
 				;;
 			*)
-				for built in $(emit $child $context)
+				for built in $(emit $child '1'${context:1})
 				do
 					Result[$size]=$built
 					size+=1
 				done
 				;;
 		esac
+	done
+
+	echo ${Result[@]}
+}
+
+emit_declarations () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		for built in $(emit $child '1'${context:1})
+		do
+			Result[${#Result[@]}]=$built
+		done
+	done
+
+	echo ${Result[@]}
+}
+
+emit_declarationsBody () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		for built in $(emit $child '1'${context:1})
+		do
+			Result[${#Result[@]}]=$built
+		done
 	done
 
 	echo ${Result[@]}
@@ -231,7 +281,7 @@ emit_dot() {
 		triangles)
 			case $parameter in
 				size)
-					echo 'elements'\''Range'\''Last'
+					echo 'Natural\040(elements.Length)'
 					;;
 			esac
 			;;
@@ -251,18 +301,22 @@ emit_dot() {
 	esac
 }
 
+emit_dotCount () {
+	echo 'count'
+}
+
 emit_dotVertex () {
 	local -r name=$(rvalue ${1:?})
 
 	case ${T[${2:?}]} in
 		x)
-			echo 'vertices\040(3\040*\040'$name'\040+\0401)'
+			echo 'vertices.Element\040(3\040*\040'$name'\040+\0401)'
 			;;
 		y)
-			echo 'vertices\040(3\040*\040'$name'\040+\0402)'
+			echo 'vertices.Element\040(3\040*\040'$name'\040+\0402)'
 			;;
 		z)
-			echo 'vertices\040(3\040*\040'$name'\040+\0403)'
+			echo 'vertices.Element\040(3\040*\040'$name'\040+\0403)'
 			;;
 	esac
 }
@@ -272,7 +326,7 @@ emit_double () {
 }
 
 emit_floor () {
-	echo 'Floor('$(rvalue ${1:?})')'
+	echo 'Integer\040(Double'\''Floor\040('$(rvalue ${1:?})'))'
 }
 
 emit_for () {
@@ -307,63 +361,78 @@ emit_forDouble () {
 
 emit_function () {
 	local -r name=${1:?}
-	local -ar parameters=(${@:2})
-	local -i size=${#parameters[@]}
+	local -r parameters=$(rvalue ${3:?})
 	local -r context='0'${context:1}
 
 	local -a Result
-	case $name in
-		length)
-			Result[0]='function'
+	Result[0]=$(rvalue ${2:?})
+	local -i size=1
+
+	case ${Result[0]} in
+		void)
+			Result[1]='procedure'
 			;;
 		*)
-			Result[0]='procedure'
+			Result[1]='function'
 			;;
 	esac
 
-	Result[0]=${Result[0]}'\040'$(octal $name)
-	if [ $size -gt 0 ]
+	Result[1]+='\040'$(octal $name)
+	if [ ${#parameters} -gt 2 ]
 	then
-		Result[0]=${Result[0]}'\040('
+		Result[1]+='\040'$parameters
+	fi
 
-		size=0
-		for parameter in ${parameters[@]}
+	case ${Result[0]} in
+		void)
+			Result[0]=${Result[1]}
+			;;
+		*)
+			Result[0]=${Result[1]}'\040return\040'${Result[0]}
+			;;
+	esac
+
+	if [ ${#context} -eq 2 ]
+	then
+		Result[0]+='\040is\n'
+		for built in $(emit_glue ${4:?})
 		do
-			if [ $(($size % 2)) -eq 0 ]
-			then
-				if [ $size -gt 1 ]
-				then
-					Result[0]=${Result[0]}',\040'
-				fi
-
-				Result[1]=${parameter/index/Index}
-			else
-				Result[0]=${Result[0]}$parameter':\040in\040'${Result[1]}
-			fi
-
+			Result[$size]=$built
 			size+=1
 		done
 
-		Result[0]=${Result[0]}')'
+		if [ $name = 'cube' ]
+		then
+			Result[$(($size - 1))]+='\n'
+
+			Result[$size]='\tfunction\040image\040(i:\040in\040Integer)\040return\040String\040is\n'
+			size+=1
+			Result[$size]='\t\tuse\040Ada.Strings;\n'
+			size+=1
+			Result[$size]='\t\tuse\040Ada.Strings.Fixed;\n'
+			size+=1
+			Result[$size]='\tbegin\n'
+			size+=1
+			Result[$size]='\t\treturn\040Trim\040(i'\''Image,\040Left);\n'
+			size+=1
+			Result[$size]='\tend\040image;\n'
+			size+=1
+		fi
+
+		Result[$size]='begin\n'
+		size+=1
+		for built in $(emit_glue ${@:5})
+		do
+			Result[$size]=$built
+			size+=1
+		done
+		Result[$size]='end\040'$(octal $name)';\n'
+		size+=1
+
+		echo ${Result[@]}
+	else
+		echo ${Result[0]}';'
 	fi
-
-	case $name in
-		length)
-			Result[0]=${Result[0]}'\040return\040double\040is\n'
-			;;
-		*)
-			Result[0]=${Result[0]}'\040is\n'
-			;;
-	esac
-
-	Result[1]='begin\n'
-	for built in $(emit_glue ${children[@]})
-	do
-		Result[${#Result[@]}]=$built
-	done
-	Result[${#Result[@]}]='end\040'$(octal $name)';\n'
-
-	echo ${Result[@]}
 }
 
 emit_glue () {
@@ -393,15 +462,39 @@ emit_glue () {
 }
 
 emit_identifier () {
-	echo ${T[${1:?}]}
+	local -r name=${T[${1:?}]}
+	local Result=$name
+
+	if [[ ${#name} -eq 1 && ${name@u} = $name ]]
+	then
+		Result+=$name
+	fi
+
+	echo $Result
 }
 
 emit_identifierThis () {
-	echo ${T[${1:?}]}
+	local -r name=${T[${1:?}]}
+	local Result=$name
+
+	if [[ ${#name} -eq 1 && ${name@u} = $name ]]
+	then
+		Result+=$name
+	fi
+
+	echo $Result
 }
 
 emit_identifierVector3d () {
-	echo ${T[${1:?}]}'\040(1\040..\0403)'
+	local -r name=${T[${1:?}]}
+	local Result=$name
+
+	if [[ ${#name} -eq 1 && ${name@u} = $name ]]
+	then
+		Result+=$name
+	fi
+
+	echo $Result'\040(1\040..\0403)'
 }
 
 emit_if () {
@@ -447,7 +540,7 @@ emit_int () {
 }
 
 emit_min () {
-	echo 'Min('$(rvalue ${1:?})',\040'$(rvalue ${2:?})')'
+	echo $(rvalue ${1:?})':'$(rvalue ${2:?})
 }
 
 emit_minusAssignVector3d () {
@@ -467,9 +560,9 @@ emit_minusAssignVertex () {
 	local -r value=$(lvalue ${2:?})
 	local -a Result
 
-	Result[0]='vertices\040(3\040*\040'$name'\040+\0401)\040:=\040vertices\040(3\040*\040'$name'\040+\0401)\040-\040'$value'\040(1);\n'
-	Result[1]='vertices\040(3\040*\040'$name'\040+\0402)\040:=\040vertices\040(3\040*\040'$name'\040+\0402)\040-\040'$value'\040(2);\n'
-	Result[2]='vertices\040(3\040*\040'$name'\040+\0403)\040:=\040vertices\040(3\040*\040'$name'\040+\0403)\040-\040'$value'\040(3);\n'
+	Result[0]='vertices.Replace_Element\040(3\040*\040'$name'\040+\0401,\040vertices.Element\040(3\040*\040'$name'\040+\0401)\040-\040'$value'\040(1));\n'
+	Result[1]='vertices.Replace_Element\040(3\040*\040'$name'\040+\0402,\040vertices.Element\040(3\040*\040'$name'\040+\0402)\040-\040'$value'\040(2));\n'
+	Result[2]='vertices.Replace_Element\040(3\040*\040'$name'\040+\0403,\040vertices.Element\040(3\040*\040'$name'\040+\0403)\040-\040'$value'\040(3));\n'
 
 	echo ${Result[@]}
 }
@@ -494,10 +587,7 @@ emit_multiplyInt () {
 }
 
 emit_newGrid () {
-	local -a Result=($(rvalue ${1:?}) $(rvalue ${2:?}) $(rvalue ${3:?}))
-	Result[3]='grid:\040Grid(1\040..\040'$(rvalue ${4:?})',\0401\040..\040'$(rvalue ${5:?})',\0401\040..\040'$(rvalue ${6:?})')\040:=\040(others\040=>\040False);\n'
-
-	echo ${Result[@]}
+	echo
 }
 
 emit_operator () {
@@ -521,6 +611,22 @@ emit_operator () {
 			echo '/='
 			;;
 	esac
+}
+
+emit_parameter () {
+	echo $(rvalue ${2:?})':\040in\040'$(rvalue ${1:?})
+}
+
+emit_parameters () {
+	local -ar children=(${@:1})
+	local -i child=0
+	local -a Result
+	for child in ${children[@]}
+	do
+		Result[${#Result[@]}]=$(rvalue $child)
+	done
+
+	echo '('$(join ';\040' ${Result[@]})')'
 }
 
 emit_positional () {
@@ -547,9 +653,9 @@ emit_triangle () {
 	local -a Result
 
 	Result[0]=$(rvalue ${1:?})
-	Result[1]='elements\040('${Result[0]}'\040+\0402)'
-	Result[2]='elements\040('${Result[0]}'\040+\0403)'
-	Result[0]='elements\040('${Result[0]}'\040+\0401)'
+	Result[1]='elements.Element\040(Positive\040('${Result[0]}'\040+\0402))'
+	Result[2]='elements.Element\040(Positive\040('${Result[0]}'\040+\0403))'
+	Result[0]='elements.Element\040(Positive\040('${Result[0]}'\040+\0401))'
 
 	echo $(join ',\040' ${Result[@]})
 }
@@ -561,130 +667,153 @@ emit_type() {
 	for child in ${children[@]}
 	do
 		Result[${#Result[@]}]=${T[$child]}
+
+		case ${Result[-1]} in
+			*'[]')
+				Result[-1]=${Result[-1]%'[]'}
+
+				case ${Result[-1]} in
+					index)
+						Result[-1]='Indices'
+						;;
+					*)
+						Result[-1]=${Result[-1]@u}'s'
+						;;
+				esac
+
+				Result[-1]+='.Vector'
+				;;
+			Grid)
+				Result[-1]+='3.Set'
+				;;
+			const)
+				Result[-1]+='ant'
+				;;
+			double)
+				Result[-1]=${Result[-1]@u}
+				;;
+			index|size*)
+				Result[-1]='Natural'
+				;;
+			index.grid)
+				Result[-1]='Integer'
+				;;
+			static)
+				Result[-1]=
+				;;
+		esac
 	done
 
-	echo $(join '\040' ${Result[@]})
+	echo ${Result[@]}
 }
 
 emit_var() {
-	local -ir cut=${1:?}
+	local -r name=${1:?}
 	local -ar parameters=(${@:2})
 	local -ir size=${#parameters[@]}
 
 	local -a attributes
-	local name=
-	local value=
-	local Result=
+	local value=$(rvalue ${2:?})
+	local -a Result
 
-	if [ $cut -eq 1 ]
+	attributes[0]=$value
+	case $value in
+		Doubles.*|Indices.*|Grid3.*)
+			if [ $size -lt 2 ]
+			then
+				value=${value/'.'/'.Empty_'}
+			fi
+			;;
+		*Vector3d*)
+			if [ $size -lt 2 ]
+			then
+				value='(0.0,\0400.0,\0400.0)'
+			fi
+			;;
+		Double)
+			if [ $size -lt 2 ]
+			then
+				value='0.0'
+			fi
+			;;
+		Natural)
+			if [ $size -lt 2 ]
+			then
+				value='0'
+			fi
+			;;
+	esac
+
+	if [ $size -gt 1 ]
 	then
-		case ${parameters[0]} in
-			*'[]')
-				attributes[${#attributes[@]}]=${parameters[0]%'[]'}
+		value=$(rvalue ${parameters[1]})
 
-				case ${attributes[-1]} in
-					*)
-						attributes[${#attributes[@]}]='array\040(Positive\040range\040<>)\040of\040'${attributes[-1]@u}
-						;;
-				esac
-				;;
-			Vector3d)
-				attributes[${#attributes[@]}]=${parameters[0]}
-
-				if [ $size -lt 3 ]
-				then
-					value='(0.0,\0400.0,\0400.0)'
-				fi
-				;;
-			Grid)
-				attributes[${#attributes[@]}]='Grid'
-				;;
-			double)
-				attributes[${#attributes[@]}]='Double'
-				;;
-			index|size*)
-				attributes[${#attributes[@]}]='Index'
-				;;
-			*)
-				attributes[${#attributes[@]}]=${parameters[0]}
-				;;
-		esac
-
-		name=$(octal ${parameters[1]})
-
-		if [ $size -gt 2 ]
+		if [ ${T[${parameters[1]}]} = 'min' ]
 		then
-			value=$(octal ${parameters[2]})
-		fi
-	else
-		name=$(rvalue ${parameters[0]})
-
-		case $name in
-			*const*)
-				attributes[${#attributes[@]}]='constant'
-				name=${name/'const\040'/}
-				;;
-		esac
-
-		case $name in
-			*double*)
-				attributes[${#attributes[@]}]='Double'
-				;;
-			*index*|*size*)
-				attributes[${#attributes[@]}]='Index'
-				;;
-			*)
-				attributes[${#attributes[@]}]=$name
-				;;
-		esac
-
-		name=$(lvalue ${parameters[1]})
-
-		if [ $size -gt 2 ]
-		then
-			value=$(rvalue ${parameters[2]})
+			Result=($(cut ':' $value))
+			value=${Result[1]}
+			Result[1]='if\040'$name'\040>\040'${Result[0]}'\040then\n'
+			Result[2]='\t'$name'\040:=\040'${Result[0]}';\n'
+			Result[3]='end\040if;\n'
 		fi
 	fi
 
-	if [ ${#attributes[@]} -gt 0 ]
+	if [ -n $name ]
 	then
-		name+=':\040'$(join '\040' ${attributes[@]})
+		Result[0]=$name
+
+		if [[ ${#name} -eq 1 && ${name@u} = $name ]]
+		then
+			Result[0]+=$name
+		fi
 	fi
 
-	if [[ -n $name && -n $value ]]
+	if [[ ${context:0:1} -eq 1 && ${#attributes[@]} -gt 0 ]]
 	then
-		if [ ${context:0:1} -eq 0 ]
-		then
-			Result=$name'\040:=\040'$value
-		else
-			Result=$name
-		fi
-	else
-		Result=$name
+		Result[0]+=':\040'$(join '\040' ${attributes[@]})
+	fi
+
+	if [ -n $value ]
+	then
+		Result[0]+='\040:=\040'$value
 	fi
 
 	if [ ${context:1:1} -eq 1 ]
 	then
-		Result=$Result';\n'
+		Result[0]+=';\n'
+
+		if [ ${#Result[@]} -gt 1 ]
+		then
+			Result[0]+='\n'
+		fi
 	fi
 
-	echo $Result
+	echo ${Result[@]}
 }
 
 emit_vertex () {
 	local -ir cut=${1:?}
 	local -ir name=${2:?}
-	local Result=
+	local -a Result
 
 	if [ $cut -eq 1 ]
 	then
-		Result='vertices\040('$((3 * $name + 1))'\040..\040'$((3 * $name + 3))')'
+		Result[0]='vertices.Element\040('$((3 * $name + 1))')'
+		Result[1]='vertices.Element\040('$((3 * $name + 2))')'
+		Result[2]='vertices.Element\040('$((3 * $name + 3))')'
 	else
-		Result=$(rvalue $name)
-		Result='vertices\040(3\040*\040'${Result[0]}'\040+\0401\040..\0403\040*\040'${Result[0]}'\040+\0403)'
+		Result[0]=$(rvalue $name)
+		Result[1]='vertices.Element\040(3\040*\040'${Result[0]}'\040+\0402)'
+		Result[2]='vertices.Element\040(3\040*\040'${Result[0]}'\040+\0403)'
+		Result[0]='vertices.Element\040(3\040*\040'${Result[0]}'\040+\0401)'
 	fi
 
-	echo $Result
+	echo '('$(join ',\040' ${Result[@]})')'
+}
+
+build_files () {
+	build_file "${@:1:2}" 'adb'
+	build_file "${@:1:2}" 'ads' '111'
 }
 
 . ./build.sh ada

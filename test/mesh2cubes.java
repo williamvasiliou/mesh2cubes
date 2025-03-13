@@ -19,6 +19,7 @@ public final class mesh2cubes {
 	public static final HashMap<String, String> extensions = new HashMap<String, String>(2);
 
 	static {
+		extensions.put("ada", "");
 		extensions.put("awk", "awk");
 		extensions.put("bash", "sh");
 		extensions.put("c", "");
@@ -58,11 +59,12 @@ public final class mesh2cubes {
 
 	public static final ProcessBuilder builder(String target, String extension, String argument) {
 		switch (target) {
-			case "awk":
-				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);
+			case "ada":
 			case "c":
 			case "cxx":
 				return new ProcessBuilder(argument);
+			case "awk":
+				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);
 			case "java":
 				return new ProcessBuilder(target, "-cp", "../../src/java", argument);
 			case "perl":

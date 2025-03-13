@@ -644,7 +644,7 @@ emit_type() {
 			Grid)
 				Result[-1]='uint8_t'
 				;;
-			index|size*)
+			index|index.*|size*)
 				Result[-1]='size_t'
 				;;
 			static)

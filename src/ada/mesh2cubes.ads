@@ -22,8 +22,8 @@ package mesh2cubes is
 	min: Vector3d := (0.0, 0.0, 0.0);
 	max: Vector3d := (0.0, 0.0, 0.0);
 	mid: Vector3d := (0.0, 0.0, 0.0);
-	c: Double := 0.0;
-	t: Double := 0.0;
+	c: Double := 1.0;
+	t: Double := 1.0;
 	xr: Natural := 0;
 	yr: Natural := 0;
 	zr: Natural := 0;
