@@ -1,5 +1,5 @@
 TARGETS := all clean
-SUBDIRS := ada awk bash c cxx java perl
+SUBDIRS := ada awk bash c cxx d fortran go java perl
 
 .PHONY: $(TARGETS) $(SUBDIRS)
 

@@ -24,6 +24,9 @@ public final class mesh2cubes {
 		extensions.put("bash", "sh");
 		extensions.put("c", "");
 		extensions.put("cxx", "");
+		extensions.put("d", "");
+		extensions.put("fortran", "");
+		extensions.put("go", "");
 		extensions.put("java", "java");
 		extensions.put("perl", "pl");
 	}
@@ -62,6 +65,9 @@ public final class mesh2cubes {
 			case "ada":
 			case "c":
 			case "cxx":
+			case "d":
+			case "fortran":
+			case "go":
 				return new ProcessBuilder(argument);
 			case "awk":
 				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);

@@ -53,7 +53,7 @@ void print(m2c_t *m2c) {
 	const size_t zr = m2c->zr;
 
 	printf("%f,%f,%f,%f,%f\n", m2c->max[0], m2c->max[1], m2c->max[2], m2c->t, m2c->c);
-	printf("%lu,%lu,%lu\n", xr, yr, zr);
+	printf("%zu,%zu,%zu\n", xr, yr, zr);
 
 	const size_t xl = m2c->xl;
 	const size_t yl = m2c->yl;
@@ -65,7 +65,7 @@ void print(m2c_t *m2c) {
 				const size_t i = yl * zl * x + zl * y + z;
 
 				if (m2c->grid[i >> 3] & (1 << (i & 7))) {
-					printf("%ld,%ld,%ld\n", x - xr, y - yr, z - zr);
+					printf("%zd,%zd,%zd\n", x - xr, y - yr, z - zr);
 				}
 			}
 		}
