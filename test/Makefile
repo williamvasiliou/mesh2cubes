@@ -1,6 +1,6 @@
 SRC := ../src
 TARGETS := all clean
-SUBDIRS := ada awk bash c cxx d fortran go java perl
+SUBDIRS := ada awk bash c cxx d fortran go java javascript perl python
 
 CC := gcc
 CXX := g++

@@ -28,7 +28,9 @@ public final class mesh2cubes {
 		extensions.put("fortran", "");
 		extensions.put("go", "");
 		extensions.put("java", "java");
+		extensions.put("javascript", "cjs");
 		extensions.put("perl", "pl");
+		extensions.put("python", "py");
 	}
 
 	public static final float intBitsToFloat(byte b1, byte b2, byte b3, byte b4) {
@@ -73,8 +75,12 @@ public final class mesh2cubes {
 				return new ProcessBuilder(target, "-f", "../../src/awk/" + mesh2cubes + "." + extension, "-f", argument);
 			case "java":
 				return new ProcessBuilder(target, "-cp", "../../src/java", argument);
+			case "javascript":
+				return new ProcessBuilder("node", argument);
 			case "perl":
 				return new ProcessBuilder(target, "-I", "../../src/perl", argument);
+			case "python":
+				return new ProcessBuilder("python3", argument);
 			default:
 				return new ProcessBuilder(target, argument);
 		}

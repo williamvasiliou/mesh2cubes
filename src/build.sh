@@ -482,7 +482,7 @@ emit () {
 }
 
 target () {
-	local -Ar targets=('ada' 1 'awk' 1 'bash' 1 'c' 1 'cxx' 1 'd' 1 'fortran' 1 'go' 1 'java' 1 'perl' 1)
+	local -Ar targets=('ada' 1 'awk' 1 'bash' 1 'c' 1 'cxx' 1 'd' 1 'fortran' 1 'go' 1 'java' 1 'javascript' 1 'perl' 1 'python' 1)
 	echo ${targets[${1:?}]:-0}
 }
 
